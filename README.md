@@ -35,3 +35,19 @@ Please create your own experimentation and development in jupyter notebooks and 
 
 ## Code config
 It is best to separate the configuration and hyperparameters from the source code. Please, use the `code_config/` directory for storing these configuration files.
+
+## Setting up the development environment
+We use python virtual-environment for isolation of our development from the default python. Use the command below in your terminal to create a virtual environment named `venv`. Upgrade the pip version also.
+```bash
+cd cvmt/
+python3 -m virtualenv -p /usr/bin/python venv
+pip install --upgrade pip
+
+```
+
+Activate the environment and install the dependencies for development work
+```bash
+source venv/bin/activate
+pip install -r requirements-dev.txt
+
+```
