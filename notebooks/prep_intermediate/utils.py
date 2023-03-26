@@ -9,10 +9,17 @@ import h5py
 from PIL import Image
 import numpy as np
 import hashlib
+from scipy.spatial.distance import pdist
+from itertools import combinations
 
 
 with open("../../code_configs/params.yaml") as f:
     params = yaml.safe_load(f)
+
+
+CORRECT_V_LANDMARKS_SHAPE = {
+    '2': 3, '3': 5, '4': 5,
+}
 
     
 def load_image(
@@ -30,7 +37,7 @@ def load_image(
     return image
 
 
-def load_vertebral_annots(
+def load_and_clean_vertebral_annots(
     image_filename:str,
     v_annot_dir: str,
     unwanted_fields_v_annot: List[str],
@@ -48,10 +55,29 @@ def load_vertebral_annots(
     if os.path.exists(v_annot_path):
         with open(v_annot_path, 'r') as f:
             v_annots = json.load(f)
-        # remove the unwanted image data
-        for field in unwanted_fields_v_annot:
-            if field in v_annots:
-                v_annots[field] = None
+    # clean the data
+    if v_annots is not None:
+        try:
+            # remove the unwanted image data
+            for field in unwanted_fields_v_annot:
+                if field in v_annots:
+                    v_annots[field] = None
+            # apply further corrections
+            # correct the shape groupnames
+            shape_grps = [shape['group_id'] for shape in v_annots['shapes']]
+            shape_grps = correct_shape_group_names(shape_grps)
+            for shape_grp, shape in zip(shape_grps, v_annots['shapes']):
+                shape['group_id'] = shape_grp
+            # drop the extra landmark that is added sometimes
+            landmarks_list = [shape['points'] for shape in v_annots['shapes']]
+            landmarks_list = [
+                drop_extra_landmarks(landmarks, shape_grp) 
+                for shape_grp, landmarks in zip(shape_grps, landmarks_list)]
+            for landmarks, shape in zip(landmarks_list, v_annots['shapes']):
+                shape['points'] = landmarks
+        except Exception as e:
+            print(e)
+            print("Error above encountered! V landmarks set to None.")
     return v_annots
 
 
@@ -86,7 +112,7 @@ def load_and_clean_image_and_annotations(
         image_filename=image_filename,
         image_dir=image_dir,
     )
-    v_annots = load_vertebral_annots(
+    v_annots = load_and_clean_vertebral_annots(
         image_filename=image_filename,
         v_annot_dir=v_annot_dir,
         unwanted_fields_v_annot=unwanted_fields_v_annot,
@@ -96,6 +122,40 @@ def load_and_clean_image_and_annotations(
         f_annot_dir=f_annot_dir,
     )
     return image, v_annots, f_annots
+
+
+def correct_shape_group_names(
+    shape_grps: List[Union[str, int]],
+) -> List[str]:
+    shape_grps = [str(n) for n in shape_grps]
+    if all(len(n) == 1 for n in shape_grps) is False:
+        shape_grps = [n[0] for n in shape_grps]
+    if len(set(shape_grps)) != 3:
+        raise ValueError("The shape group names are malformed!")
+    else:
+        return shape_grps
+
+
+def drop_extra_landmarks(
+    landmarks: List[List[float]],
+    shape_grp: str,
+) -> np.ndarray:
+    landmarks = np.array(landmarks)
+    if landmarks.shape[0] > CORRECT_V_LANDMARKS_SHAPE[shape_grp]:
+        indices = list(combinations(range(len(landmarks)), 2))
+        distances = pdist(landmarks, 'euclidean')
+        index = np.argmin(distances)
+        duplicate_row = indices[index][-1]
+        corrected_landmarks = np.delete(landmarks, duplicate_row, axis=0)
+        return corrected_landmarks
+    elif landmarks.shape[0] < CORRECT_V_LANDMARKS_SHAPE[shape_grp]:
+        raise ValueError(
+            "Number of annotated landmarks does not match the"
+            " expected value!"
+        )
+    else:
+        return landmarks
+    
 
 
 def write_v_annots(
@@ -160,13 +220,15 @@ def save_image_and_annots_hdf5(
     if v_annots is not None:
         try:
             write_v_annots(f, v_annots,)
-        except:
+        except Exception as e:
+            print(e)
             print("--- v annots was not None, but, the code encountered an error!")
     # write facial landmark annotation data
     if f_annots is not None:
         try:
             write_f_annots(f, f_annots,)
-        except:
+        except Exception as e:
+            print(e)
             print("--- f annots was not None, but, the code encountered an error!")
     # close the h5py
     f.close()
