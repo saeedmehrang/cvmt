@@ -37,3 +37,8 @@ DATASET_2_EDGE_DETECT_SIGMA: 3
 DATASET_3_EDGE_DETECT_SIGMA: 3
 
 ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"
+
+# training: primary stage data config
+METADATA_TABLE_NAME: 'metadata.hdf5'
+DATASETS_TO_INCLUDE: ['dataset_2', 'dataset_3']
+TARGET_IMAGE_SIZE: [256, 256] # change this when enough RAM is available
