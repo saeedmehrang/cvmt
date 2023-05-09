@@ -11,6 +11,8 @@ import numpy as np
 import hashlib
 from scipy.spatial.distance import pdist
 from itertools import combinations
+from skimage.feature import canny
+from scipy.ndimage import gaussian_gradient_magnitude
 
 
 with open("../../code_configs/params.yaml") as f:
@@ -34,6 +36,7 @@ def load_image(
         image_path,
         mode='r',
     ))
+    image = convert_image_bw_no_channel(image)
     return image
 
 
@@ -107,10 +110,15 @@ def load_and_clean_image_and_annotations(
     v_annot_dir: Union[str, None],
     f_annot_dir: Union[str, None],
     unwanted_fields_v_annot: List[str],
+    sigma: int = 1,
 ) -> Tuple[np.ndarray, Union[Dict, None], np.ndarray]:
     image = load_image(
         image_filename=image_filename,
         image_dir=image_dir,
+    )
+    edges = compute_edges_ggm(
+        image=image,
+        sigma=sigma,
     )
     v_annots = load_and_clean_vertebral_annots(
         image_filename=image_filename,
@@ -121,7 +129,7 @@ def load_and_clean_image_and_annotations(
         image_filename=image_filename,
         f_annot_dir=f_annot_dir,
     )
-    return image, v_annots, f_annots
+    return image, edges, v_annots, f_annots
 
 
 def correct_shape_group_names(
@@ -203,6 +211,7 @@ def save_image_and_annots_hdf5(
     image: np.ndarray,
     v_annots: Union[Dict, None],
     f_annots: Union[np.ndarray, None],
+    edges: np.ndarray,
 ) -> bool:
     filename = harmonized_id+'.hdf5'
     # create the filepath
@@ -216,6 +225,8 @@ def save_image_and_annots_hdf5(
     f = h5py.File(filepath, 'w')
     # write image data
     write_image(f, image)
+    # write edges data
+    write_edges(f, edges)
     # write vertebral landmark annotation data
     if v_annots is not None:
         try:
@@ -249,13 +260,15 @@ def harmonize_hdf5(
     image_dir: str,
     v_annot_dir: str,
     f_annot_dir: str,
+    sigma: int = 1,
 ) -> Tuple[str, str, bool, bool]:
-    image, v_annots, f_annots = load_and_clean_image_and_annotations(
+    image, edges, v_annots, f_annots = load_and_clean_image_and_annotations(
         image_filename=image_filename,
         image_dir=image_dir,
         v_annot_dir=v_annot_dir,
         f_annot_dir=f_annot_dir,
         unwanted_fields_v_annot=params['UNWANTED_JSON_FIELDS'],
+        sigma=sigma,
     )
     harmonized_id = create_hash_code(
         image_dir=image_dir,
@@ -267,10 +280,12 @@ def harmonize_hdf5(
         image=image,
         v_annots=v_annots,
         f_annots=f_annots,
+        edges=edges,
     )
     v_annots_present = True if v_annots is not None else False
     f_annots_present = True if f_annots is not None else False
-    return harmonized_id, v_annots_present, f_annots_present
+    edges_present = True if edges is not None else False
+    return harmonized_id, v_annots_present, f_annots_present, edges_present
 
 
 def read_harmonized_hdf5(
@@ -305,4 +320,54 @@ def read_harmonized_hdf5(
         f_landmarks = {
             'f_landmarks': f['f_landmarks']['points'][:]
         }
-    return image, v_landmarks, f_landmarks
+    # read edges
+    edges = f['edges']['data'][:]
+    return image, edges, v_landmarks, f_landmarks
+
+
+def compute_edges_canny(
+    image: np.ndarray,
+    sigma: int = 1,
+) -> np.ndarray:
+    edges = canny(image, sigma=sigma)
+    edges = edges.astype(int)
+    return edges
+
+
+def compute_edges_ggm(
+    image: np.ndarray,
+    sigma: int = 1,
+) -> np.ndarray:
+    # normalize the image
+    image = image / 255.0
+    # compute edges
+    edges = gaussian_gradient_magnitude(image, sigma=sigma)
+    edges = edges.astype(float)
+    return edges
+
+
+def write_edges(
+    f: h5py._hl.files.File,
+    edges: np.ndarray,
+) -> bool:
+    edges_data_grp = f.create_group("edges")
+    edges_data_grp.create_dataset('data', data=edges)
+    return True
+
+
+def convert_image_bw_no_channel(image):
+    if len(image.shape) == 2:
+        # image is black and white, leave it as it is
+        return image
+    elif len(image.shape) == 3 and image.shape[2] == 1:
+        # image has a single channel, already black and white, remove channel axis
+        return image[:, :, 0]
+    elif len(image.shape) == 3 and image.shape[0] == 1:
+        # image has a single channel, already black and white, remove channel axis
+        return image[0, :, :]
+    elif len(image.shape) == 3 and image.shape[2] > 1:
+        # image has multiple channels, convert to black and white
+        image = np.dot(image[..., :3], [0.2989, 0.5870, 0.1140])
+        return image
+    else:
+        raise ValueError("Invalid image shape")
