@@ -1,6 +1,7 @@
 RAW_DATA_DIRECTORY: "../../data/raw"
 INTERMEDIATE_DATA_DIRECTORY: "../../data/intermediate"
 PRIMARY_DATA_DIRECTORY: "../../data/primary"
+ARTIFACTS_DATA_DIRECTORY: "../../artifacts"
 
 # raw stage data config
 DATASET_1_RAW_ZIP_FILE_NAME: "radiography-20221212T190109Z-001.zip"
@@ -15,7 +16,7 @@ DATASET_3_RAW_DIR_NAME: "dataset_3_raw_data"
 # intermediate stage data config
 UNWANTED_JSON_FIELDS: ['imageData', 'imagePath']
 
-DATASET_1_INTERM_DIR_NAME: "dataset_1_interm_data-20230304T160341Z-001"
+DATASET_1_INTERM_DIR_NAME: "dataset_1_interm_data-20230513T084705Z-001"
 DATASET_1_INTERM_IMG_DIR_NAME: ["image"]
 DATASET_1_INTERM_V_LANDMARKS_DIR_NAME: ["label"]
 DATASET_1_INTERM_F_LANDMARKS_DIR_NAME: null
@@ -29,3 +30,10 @@ DATASET_3_INTERM_DIR_NAME: "dataset_3_interm_data-20230304T160433Z-001"
 DATASET_3_INTERM_IMG_DIR_NAME: ["training/image", "test1/image", "test2/image"]
 DATASET_3_INTERM_V_LANDMARKS_DIR_NAME: ["training/label", "test1/label", "test2/label"] 
 DATASET_3_INTERM_F_LANDMARKS_DIR_NAME: "AnnotationsByMD/400_senior"
+
+# primary stage data config
+DATASET_1_EDGE_DETECT_SIGMA: 3
+DATASET_2_EDGE_DETECT_SIGMA: 3
+DATASET_3_EDGE_DETECT_SIGMA: 3
+
+ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"

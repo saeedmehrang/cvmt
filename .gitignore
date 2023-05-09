@@ -47,3 +47,5 @@ ENV/
 
 # data
 data/
+artifacts/
+
