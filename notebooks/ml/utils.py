@@ -9,6 +9,9 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset
 from torchvision import transforms
+import cv2
+import matplotlib.gridspec as gridspec
+from numpy import unravel_index
 
 
 class HDF5MultitaskDataset(Dataset):
@@ -299,11 +302,7 @@ class ResizeTransform(object):
         # create the new height and width
         new_h, new_w = int(new_h), int(new_w)
         # resize the image
-        r_transform = transforms.Resize((new_h, new_w), antialias=True)
-        image = convert_to_bw(image)
-        image = image.transpose((2, 0, 1)) # transpose to (C, H, W)
-        image = torch.from_numpy(image)
-        resized_image = r_transform(image)
+        resized_image = cv2.resize(image, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
         # create the new output dict
         resized_sample = {'image': resized_image,}
         # h and w are swapped for landmarks because for images,
@@ -311,43 +310,187 @@ class ResizeTransform(object):
         if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
             v_landmarks = sample['v_landmarks']
             v_landmarks = v_landmarks * [new_w / w, new_h / h]
-            resized_sample['v_landmarks'] = torch.from_numpy(v_landmarks)
+            resized_sample['v_landmarks'] = v_landmarks
         if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
             f_landmarks = sample['f_landmarks']
             f_landmarks = f_landmarks * [new_w / w, new_h / h]
-            resized_sample['f_landmarks'] = torch.from_numpy(f_landmarks)
+            resized_sample['f_landmarks'] = f_landmarks
         if 'edges' in sample and sample['edges'] is not None:
             edges = sample['edges']
-            edges = convert_to_bw(edges)
-            edges = edges.transpose((2, 0, 1)) # transpose to (C, H, W)
-            edges = torch.from_numpy(edges)
-            resized_edges = r_transform(edges)
+            resized_edges = cv2.resize(edges, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
             resized_sample['edges'] = resized_edges
         return resized_sample
 
 
-def convert_to_bw(image):
-    if len(image.shape) == 2:
-        # image is black and white, add a channel axis to the end
-        image = np.expand_dims(image, 2)
-        return image
-    elif len(image.shape) == 3 and image.shape[2] == 1:
-        # image has a single channel, already black and white
-        return image
-    elif len(image.shape) == 3 and image.shape[2] > 1:
-        # image has multiple channels, convert to black and white
-        image = np.dot(image[..., :3], [0.2989, 0.5870, 0.1140])
-        image = np.expand_dims(image, 2)
-        return image
-    else:
-        raise ValueError("Invalid image shape")
+class Coord2HeatmapTransform(object):
+    """Transform the coordinates of landmarks to heatmaps of
+    the same size as input image. The heatmap is smoothed by
+    a Gaussian filter.
 
-        
+    Args:
+        output_size (tuple or int): Desired output size. If tuple, output is
+            matched to output_size. If int, smaller of image edges is matched
+            to output_size keeping aspect ratio the same.
+        gauss_std: standard deviation of the Gaussian kernel convolved with
+            the landmark heatmap.
+    """
+
+    def __init__(self, output_size: Tuple[int], gauss_std: float):
+        assert isinstance(output_size, (tuple))
+        self.output_size = output_size
+        self.gauss_std = gauss_std
+
+    def __call__(self, sample):
+        # unpack the image
+        image = sample['image']
+        # create the output dict
+        transformed_data = {'image': image,}
+        # transform coordinates to heatmaps
+        if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
+            v_landmarks = sample['v_landmarks']
+            v_landmarks = self.coord2heatmap(
+                landmarks=v_landmarks,
+                output_size=self.output_size,
+                std=self.gauss_std,
+            )
+            transformed_data['v_landmarks'] = v_landmarks
+        if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
+            f_landmarks = sample['f_landmarks']
+            f_landmarks = self.coord2heatmap(
+                landmarks=f_landmarks,
+                output_size=self.output_size,
+                std=self.gauss_std,
+            )
+            transformed_data['f_landmarks'] = f_landmarks
+        if 'edges' in sample and sample['edges'] is not None:
+            edges = sample['edges']
+            transformed_data['edges'] = edges
+        return transformed_data
+
+    @staticmethod
+    def coord2heatmap(
+        landmarks: np.ndarray, 
+        output_size: Tuple[int],
+        std: float = 2.0,
+    ):
+        """
+        Convert landmark coordinates to a heatmap.
+
+        Args:
+            landmarks (ndarray): An array of landmark coordinates.
+            output_size (tuple): The size of the output heatmap (height, width).
+            std (float, optional): The standard deviation for the Gaussian kernel. Defaults to 2.
+
+        Returns:
+            ndarray: The heatmap representation of the landmarks.
+
+        """
+        # get the size of the output image
+        h, w = output_size
+        c = landmarks.shape[0]
+        # Create a black image of size (w, h)
+        heatmap = np.zeros((c, h, w), dtype=np.uint8)
+        # Convert the point coordinates to integer values
+        landmarks = landmarks.astype(int)
+        # Create a Gaussian kernel
+        kernel_size = int(4 * std + 0.5)  # Set the kernel size based on the standard deviation
+        kernel = cv2.getGaussianKernel(kernel_size, std)
+        # normalize the kernel to have a peak at 1.0
+        kernel /= kernel.max()
+        # form a 2-D kernel
+        kernel = np.outer(kernel.T, kernel.T)
+        # Set the pixel at the point of interest to white
+        for c, coord in enumerate(landmarks):
+            x, y = coord
+            heatmap_ = heatmap[c, :, :]
+            heatmap_[y, x] = 255
+            # Apply the Gaussian filter to the image
+            heatmap_gauss = cv2.filter2D(heatmap_, -1, kernel)
+            heatmap[c, ...] = heatmap_gauss
+        return heatmap
+
+
+class CustomToTensor(object):
+    """Convert ndarrays in sample to Tensors."""
+
+    def __call__(self, sample):
+        # unpack the image
+        image = sample['image']
+        image = self.convert_to_bw(image)
+        # swap color axis because
+        # numpy image: H x W x C
+        # torch image: C x H x W
+        image = image.transpose((2, 0, 1))
+        # create the output dict
+        transformed_data = {'image': torch.from_numpy(image),}
+        # transform coordinates to heatmaps
+        if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
+            v_landmarks = sample['v_landmarks']
+            transformed_data['v_landmarks'] = torch.from_numpy(v_landmarks)
+        if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
+            f_landmarks = sample['f_landmarks']
+            transformed_data['f_landmarks'] = torch.from_numpy(f_landmarks)
+        if 'edges' in sample and sample['edges'] is not None:
+            edges = sample['edges']
+            edges = self.convert_to_bw(edges)
+            # swap color axis because
+            # numpy image: H x W x C
+            # torch image: C x H x W
+            edges = edges.transpose((2, 0, 1))
+            transformed_data['edges'] = torch.from_numpy(edges)
+        return transformed_data
+    
+    @staticmethod
+    def convert_to_bw(
+        image: np.ndarray
+    ) -> np.ndarray:
+        """
+        Convert an image to black and white.
+
+        Args:
+            image (ndarray): The input image.
+
+        Returns:
+            ndarray: The black and white version of the image.
+
+        Raises:
+            ValueError: If the image shape is invalid.
+
+        """
+        if len(image.shape) == 2:
+            # image is black and white, add a channel axis to the end
+            image = np.expand_dims(image, 2)
+            return image
+        elif len(image.shape) == 3 and image.shape[2] == 1:
+            # image has a single channel, already black and white
+            return image
+        elif len(image.shape) == 3 and image.shape[2] > 1:
+            # image has multiple channels, convert to black and white
+            image = np.dot(image[..., :3], [0.2989, 0.5870, 0.1140])
+            image = np.expand_dims(image, 2)
+            return image
+        else:
+            raise ValueError("Invalid image shape")
+            return None
+
+
 def plot_image_landmarks(
     image,
     v_landmarks=None,
     f_landmarks=None,
 ):
+    """
+    Plot an image with landmarks.
+
+    Args:
+        image: The input image to be plotted.
+        v_landmarks (ndarray, optional): An array of landmarks for visible points. Defaults to None.
+        f_landmarks (ndarray, optional): An array of landmarks for fiducial points. Defaults to None.
+
+    Returns:
+        None
+
+    """
     fig, ax = plt.subplots(figsize=(5,5),)
     ax.imshow(image, cmap='gray')
     # Plot points on top of image
@@ -499,3 +642,51 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         return self.double_conv(x)
+
+    
+def plot_many_heatmaps(
+    heatmap_tensor: torch.Tensor,
+    cols: int = 4,
+):
+    """
+    Plot multiple heatmaps in a grid layout.
+
+    Args:
+        heatmap_tensor (torch.Tensor): A tensor containing the heatmaps to be plotted.
+        cols (int, optional): The number of columns in the grid layout. Defaults to 4.
+
+    Returns:
+        None
+
+    """
+    # change to numpy
+    heatmap_tensor = heatmap_tensor.numpy()
+    # number of heatmaps
+    n_heatmaps = heatmap_tensor.shape[0]
+    rows = n_heatmaps//cols
+    if n_heatmaps%cols != 0:
+        rows += 1
+    # create a new figure
+    fig = plt.figure(tight_layout=True, figsize=(10,10))
+    gs = gridspec.GridSpec(rows, cols)
+    
+    c = 0
+    r = 0
+    for i, heatmap in enumerate(heatmap_tensor):
+        if i != 0 and i % 4 == 0:
+            r += 1
+            c = 0
+        # find the location of Gaussian peak
+        max_index = unravel_index(heatmap.argmax(), heatmap.shape)
+        # show the image
+        ax = fig.add_subplot(gs[r, c])
+        ax.imshow(heatmap, cmap='gray')
+        ax.set_title("Gauss peak coord: {}".format(','.join(map(str, max_index))))
+        c += 1
+    # title
+    # plt.suptitle("dataset is {}".format(dataset))
+    # display the plot
+    plt.tight_layout()
+    plt.show()
+    plt.pause(1)
+    return None
