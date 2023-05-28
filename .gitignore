@@ -49,3 +49,7 @@ ENV/
 data/
 artifacts/
 
+# logs
+*logs*/
+*log*/
+
