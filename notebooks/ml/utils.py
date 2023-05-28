@@ -1,17 +1,27 @@
 import random
-from typing import Callable, Dict, List, Tuple, Any, Union
+from typing import Any, Callable, Dict, List, Tuple, Union
 
+import cv2
 import h5py
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
 import torch
-from torch import nn
-from torch.utils.data import Dataset
-from torchvision import transforms
-import cv2
-import matplotlib.gridspec as gridspec
 from numpy import unravel_index
+from torch import nn
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+import os
+import yaml
+from torchmetrics import MeanSquaredError
+from pytorch_lightning.loggers import TensorBoardLogger
+
+
+with open("../../code_configs/params.yaml") as f:
+    PARAMS = yaml.safe_load(f)
 
 
 class HDF5MultitaskDataset(Dataset):
@@ -520,7 +530,7 @@ class MultiTaskLandmarkUNet1(nn.Module):
 
     def __init__(
         self, 
-        in_channels: int=3, 
+        in_channels: int=1, 
         out_channels1: int=1,
         out_channels2: int=1,
         out_channels3: int=13,
@@ -567,15 +577,19 @@ class MultiTaskLandmarkUNet1(nn.Module):
         self.upconv1 = DoubleConv(dec_out_chans[2] + enc_out_chans[1], dec_out_chans[3])
         
         # outputs
+        # task 1
         self.conv1_1 = DoubleConv(dec_out_chans[3], dec_out_chans[4],)
         self.conv1_2 = nn.Conv2d(dec_out_chans[4], out_channels1, kernel_size=1)
         
+        # task 2
         self.conv2_1 = DoubleConv(dec_out_chans[3], dec_out_chans[4],)
         self.conv2_2 = nn.Conv2d(dec_out_chans[4], out_channels2, kernel_size=1)
 
+        # task 3
         self.conv3_1 = DoubleConv(dec_out_chans[3], dec_out_chans[4],)
         self.conv3_2 = nn.Conv2d(dec_out_chans[4], out_channels3, kernel_size=1)
         
+        # task 4
         self.conv4_1 = DoubleConv(dec_out_chans[3], dec_out_chans[4],)
         self.conv4_2 = nn.Conv2d(dec_out_chans[4], out_channels4, kernel_size=1)
 
@@ -605,25 +619,28 @@ class MultiTaskLandmarkUNet1(nn.Module):
         x = torch.cat([x, x1], dim=1)
         x = self.upconv1(x)
         
-        # Output for task 3: auxiliary supervised edge detection
-        x_edge = self.conv3_1(x)
-        x_edge = self.conv3_2(x_edge)
-
-        # Output for task 3: auxiliary unsupervised image reconstruction
-        x_recon = self.conv4_1(x)
-        x_recon = self.conv4_2(x_recon)
-    
-        if task_id == 0:
-            # Output for task 1: supervised vertebral landmark detection
+        if task_id == 1:
+            # Output for task 1: unsupervised image reconstruction
             x = self.conv1_1(x)
             x = self.conv1_2(x)
-        elif task_id == 1:
-            # Output for task 2: supervised facial landmark detection
+        
+        elif task_id == 2:
+            # Output for task 2: supervised edge detection
             x = self.conv2_1(x)
             x = self.conv2_2(x)
+
+        elif task_id == 3:
+            # Output for task 3: supervised vertebral landmark detection
+            x = self.conv3_1(x)
+            x = self.conv3_2(x)
+
+        elif task_id == 4:
+            # Output for task 4: supervised facial landmark detection
+            x = self.conv4_1(x)
+            x = self.conv4_2(x)
         else:
             raise ValueError('Bad Task ID passed')
-        return (x_edge, x_recon, x)
+        return x
 
 
 class DoubleConv(nn.Module):
@@ -689,4 +706,246 @@ def plot_many_heatmaps(
     plt.tight_layout()
     plt.show()
     plt.pause(1)
+    return None
+
+
+class MultitaskTrainOnlyLandmarks(pl.LightningModule):
+    def __init__(self, model, *args, **kwargs,):
+        super().__init__(*args, **kwargs,)
+        # model
+        self.model = model
+        
+        # metrics
+        self.train_mse_task_1 = MeanSquaredError(name="train_mse_1")
+        self.train_mse_task_2 = MeanSquaredError(name="train_mse_2")
+        self.val_mse_task_1 = MeanSquaredError(name="val_mse_1")
+        self.val_mse_task_2 = MeanSquaredError(name="val_mse_2")
+
+    def training_step(self, batch, batch_idx):
+        assert isinstance(batch, dict)
+        task_ids = list(batch.keys()).sort()
+        # training for task 1
+        task_id = task_ids[0]
+        x, y = batch[task_id]
+        y = y.to(torch.float32)
+        preds = self.model(x, task_id=task_id)
+        loss_1 = nn.CrossEntropyLoss()(preds, y)
+        self.log(f'train_loss_{task_id}', loss_1)
+        self.train_mse_task_1.update(preds, y)
+        self.log(f'train_mse_{task_id}', self.train_mse_task_1)
+        
+        # training for task 2
+        task_id = task_ids[0]
+        x, y = batch[task_id]
+        y = y.to(torch.float32)
+        preds = self.model(x, task_id=task_id)
+        loss_2 = nn.CrossEntropyLoss()(preds, y)
+        self.log(f'train_loss_{task_id}', loss_2)
+        self.train_mse_task_2.update(preds, y)
+        self.log(f'train_mse_{task_id}', self.train_mse_task_2)
+
+        # run the optimizers
+        # Perform the first optimizer step
+        self.optimizer.step(0)
+        self.optimizer.zero_grad()
+
+        # Perform the second optimizer step
+        self.optimizer.step(1)
+        self.optimizer.zero_grad()
+        return loss_1, loss_2
+
+    def configure_optimizers(self):
+        optimizer1 = torch.optim.SGD(self.parameters(), lr=0.001)
+        optimizer2 = torch.optim.SGD(self.parameters(), lr=0.001)
+        return [optimizer1, optimizer2]
+    
+    def validation_step(self, batch, batch_idx):
+        assert isinstance(batch, dict)
+        task_ids = list(batch.keys()).sort()
+        # validation for task 1
+        task_id = task_ids[0]
+        x, y = batch[task_id]
+        y = y.to(torch.float32)
+        preds = self.model(x, task_id=task_id)
+        loss_1 = nn.CrossEntropyLoss()(preds, y)
+        self.log(f'val_loss_{task_id}', loss_1)
+        self.val_mse_task_1.update(preds, y)
+        self.log(f'val_mse_{task_id}', self.val_mse_task_1)
+
+        # validation for task 2
+        task_id = task_ids[0]
+        x, y = batch[task_id]
+        y = y.to(torch.float32)
+        preds = self.model(x, task_id=task_id)
+        loss_2 = nn.CrossEntropyLoss()(preds, y)
+        self.log(f'val_loss_{task_id}', loss_2)
+        self.val_mse_task_2.update(preds, y)
+        self.log(f'val_mse_{task_id}', self.val_mse_task_2)
+
+
+class SingletaskTrainLandmarks(pl.LightningModule):
+    def __init__(self, model, *args, **kwargs,):
+        super().__init__(*args, **kwargs,)
+        # model
+        self.model = model    
+
+        # metrics
+        self.train_mse = MeanSquaredError(name="train_mse")
+        self.val_mse = MeanSquaredError(name="val_mse")
+
+    def training_step(self, batch, batch_idx):
+        #assert isinstance(batch, dict)
+        #task_ids = list(batch.keys()).sort()
+        # training for task
+        #task_id = task_ids[0]
+        task_id = 3
+        x, y = batch['image'], batch['v_landmarks']
+        y = y.to(torch.float32)
+        x = x.to(torch.float32)
+        preds = self.model(x, task_id=task_id)
+        loss = nn.CrossEntropyLoss()(preds, y)
+        self.log(f'train_loss_{task_id}', loss)
+        self.train_mse.update(preds, y)
+        self.log(f'train_mse_{task_id}', self.train_mse)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
+        return optimizer
+
+    def validation_step(self, batch, batch_idx):
+        #assert isinstance(batch, dict)
+        #task_ids = list(batch.keys()).sort()
+        # validation for task
+        #task_id = task_ids[0]
+        task_id = 3
+        x, y = batch['image'], batch['v_landmarks']
+        y = y.to(torch.float32)
+        x = x.to(torch.float32)
+        preds = self.model(x, task_id=task_id)
+        loss = nn.CrossEntropyLoss()(preds, y)
+        self.log(f'val_loss_{task_id}', loss)
+        self.val_mse.update(preds, y)
+        self.log(f'val_mse_{task_id}', self.val_mse)
+
+
+def create_dataloader(
+    task_id: int,
+    batch_size: int = 16,
+    split: str = 'train',
+) -> torch.utils.data.DataLoader:
+    # load metadata
+    metadata_table = pd.read_hdf(
+        os.path.join(PARAMS['PRIMARY_DATA_DIRECTORY'], PARAMS['METADATA_TABLE_NAME']),
+        key='df',
+    )
+    # create the right list of paths
+    train_file_list = metadata_table.loc[
+        (metadata_table['split']==split) & (metadata_table['v_annots_present']==True), ['harmonized_id']
+    ].to_numpy().ravel().tolist()
+    train_file_list = [
+        os.path.join(PARAMS['PRIMARY_DATA_DIRECTORY'], file_path+'.hdf5') for file_path in train_file_list
+    ]
+    # instantiate the transforms
+    my_transforms = transforms.Compose([
+        ResizeTransform(tuple(PARAMS['TARGET_IMAGE_SIZE'])),
+        Coord2HeatmapTransform(
+            tuple(PARAMS['TARGET_IMAGE_SIZE']),
+            PARAMS['GAUSSIAN_COORD2HEATMAP_STD'],
+        ),
+        CustomToTensor(),
+    ])
+    # instantiate the dataset and dataloader objects
+    train_dataset = HDF5MultitaskDataset(
+        file_paths=train_file_list,
+        task_id=task_id,
+        transforms=my_transforms,
+    )
+    collator_task = MultitaskCollator(
+        task_id=task_id,
+    )
+    shuffle = True if split == 'train' else False
+    dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        collate_fn=collator_task,
+        num_workers=4,
+    )
+    return dataloader
+
+
+def trainer_multitask_v_and_f_landmarks():
+    # initialize the model
+    model = MultiTaskLandmarkUNet1()
+    # initialize dataloader and trainer objects
+    train_dataloaders = {}
+    val_dataloaders = {}
+
+    for task_config in PARAMS['MULTIPLE_TASKS']:
+        # unpack parameters for easier readability
+        task_id = task_config['TASK_ID']
+        batch_size = task_config['BATCH_SIZE']
+        # initialize dataloader
+        train_dataloaders[task_id] = create_dataloader(
+            task_id=task_id,
+            batch_size=batch_size,
+            split='train',
+        )
+        val_dataloaders[task_id] = create_dataloader(
+            task_id=task_id,
+            batch_size=batch_size,
+            split='val',
+        )
+    # initialize trainer
+    pl_model = MultitaskTrainOnlyLandmarks(
+        model=model,
+    )
+    trainer = pl.Trainer(        
+        max_epochs=PARAMS['MAX_EPOCHS'],
+        log_every_n_steps=1,
+    )
+    # run the training
+    trainer.fit(
+        pl_model,
+        train_dataloaders=train_dataloaders,
+        val_dataloaders=val_dataloaders,
+    )
+    return None
+
+
+def trainer_v_landmarks():
+    # get the parameters
+    task_config = PARAMS['SINGLE_TASK']
+    task_id = task_config['TASK_ID']
+    batch_size = task_config['BATCH_SIZE']
+    # initialize the model
+    model = MultiTaskLandmarkUNet1()
+    # initialize dataloader and trainer objects
+    # train dataloader
+    train_dataloader = create_dataloader(
+        task_id=task_id,
+        batch_size=batch_size,
+        split='train',
+    )
+    # val dataloader
+    val_dataloader = create_dataloader(
+        task_id=task_id,
+        batch_size=batch_size,
+        split='val',
+    )
+    # initialize trainer
+    pl_model = SingletaskTrainLandmarks(
+        model=model,
+    )
+    trainer = pl.Trainer(        
+        max_epochs=PARAMS['MAX_EPOCHS'],
+        log_every_n_steps=1,
+    )
+    # run the training
+    trainer.fit(
+        pl_model,
+        train_dataloaders=train_dataloader,
+        val_dataloaders=val_dataloader,
+    )
     return None
