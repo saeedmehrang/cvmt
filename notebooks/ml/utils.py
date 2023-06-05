@@ -1,4 +1,7 @@
+import os
 import random
+from collections import OrderedDict
+from copy import deepcopy
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 import cv2
@@ -9,19 +12,36 @@ import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
+import segmentation_models_pytorch as smp
 import torch
-from numpy import unravel_index
-from torch import nn
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-import os
 import yaml
-from torchmetrics import MeanSquaredError
+from easydict import EasyDict
+from numpy import unravel_index
 from pytorch_lightning.loggers import TensorBoardLogger
+from segmentation_models_pytorch.base.modules import Activation
+from segmentation_models_pytorch.encoders import get_encoder
+from torch import nn
+from torch.utils.data import DataLoader, Dataset
+from torchmetrics import MeanSquaredError
+from torchvision import transforms
+
+SUPPORTED_ARCHS = {"Unet", "FPN"}
+
+
+def nested_dict_to_easydict(nested_dict):
+    if isinstance(nested_dict, dict):
+        for key, value in nested_dict.items():
+            nested_dict[key] = nested_dict_to_easydict(value)
+        return EasyDict(nested_dict)
+    elif isinstance(nested_dict, list):
+        return [nested_dict_to_easydict(item) for item in nested_dict]
+    else:
+        return nested_dict
 
 
 with open("../../code_configs/params.yaml") as f:
     PARAMS = yaml.safe_load(f)
+    PARAMS = nested_dict_to_easydict(PARAMS)
 
 
 class HDF5MultitaskDataset(Dataset):
@@ -525,7 +545,7 @@ def plot_image_landmarks(
     return None
 
 
-class MultiTaskLandmarkUNet1(nn.Module):
+class MultiTaskLandmarkUNetCustom(nn.Module):
     """Multi-task U-Net architecture for landmark detection and image processing tasks"""
 
     def __init__(
@@ -537,6 +557,11 @@ class MultiTaskLandmarkUNet1(nn.Module):
         out_channels4: int=19,
         enc_chan_multiplier: int=1,
         dec_chan_multiplier: int=1,
+        backbone_encoder: Union[None, str] = None,
+        backbone_weights: Union[str, None] = "imagenet",
+        freeze_backbone: bool = True,
+        enc_out_chans: np.ndarray = np.array([4, 8, 16, 32, 64]),
+        dec_out_chans: np.ndarray = np.array([64, 32, 16, 8, 4]),
     ) -> None:
         """
         Initialize the MultiTaskLandmarkUNet1 model
@@ -549,32 +574,60 @@ class MultiTaskLandmarkUNet1(nn.Module):
             out_channels4 (int): Number of output channels for f landmark detection (default: 19)
             enc_chan_multiplier (int): Multiplication factor that increases the hidden channels of the encoder (default: 1)
             dec_chan_multiplier (int): Multiplication factor that increases the hidden channels of the decoder (default: 1)
+            backbone_encoder: Union[None, str] = None,
+            backbone_weights: Union[str, None] = "imagenet",
         """
         super().__init__()
         
         assert isinstance(enc_chan_multiplier, int)
         assert isinstance(dec_chan_multiplier, int)
         
-        enc_out_chans = np.array([16, 16, 32, 32, 64])*enc_chan_multiplier
-        dec_out_chans = np.array([64, 32, 32, 32, 32])*dec_chan_multiplier
-        dec_in_chan_start = 128*dec_chan_multiplier
-        
         # encoder
-        self.dconv1 = DoubleConv(in_channels, enc_out_chans[0])
-        self.dconv2 = DoubleConv(enc_out_chans[0], enc_out_chans[1])
-        self.dconv3 = DoubleConv(enc_out_chans[1], enc_out_chans[2])
-        self.dconv4 = DoubleConv(enc_out_chans[2], enc_out_chans[3])
-        self.dconv5 = DoubleConv(enc_out_chans[3], enc_out_chans[4])
+        self.backbone_encoder = backbone_encoder
+        if backbone_encoder is not None:
+            self.encoder = get_encoder(
+                backbone_encoder,
+                in_channels=1,
+                depth=5,
+                weights=backbone_weights,
+            )
+            if freeze_backbone:
+                for param in self.encoder.parameters():
+                    param.requires_grad = False
+            # infer the encoder output channels from the model itself
+            out = self.encoder(torch.randn(1, 1, 256, 256))
+            if not isinstance(out, list) and len(out)<5:
+                raise ValueError(
+                    "The selected backbone for the encoder does not "
+                    "have sufficient depth! The encoder has to output "
+                    "at least 5 feature maps!"
+                )
+            out.reverse()
+            enc_out_chans = [out[i].shape[1] for i in range(len(out))]
+            enc_out_chans = enc_out_chans[:5]
+            enc_out_chans.reverse()
+
+        else:
+            # set the number of output channels in the encoder
+            self.dconv1 = DoubleConv(in_channels, enc_out_chans[0])
+            self.dconv2 = DoubleConv(enc_out_chans[0], enc_out_chans[1])
+            self.dconv3 = DoubleConv(enc_out_chans[1], enc_out_chans[2])
+            self.dconv4 = DoubleConv(enc_out_chans[2], enc_out_chans[3])
+            self.dconv5 = DoubleConv(enc_out_chans[3], enc_out_chans[4])
+            
+        # define the number of channels of encoder and the decoder
+        enc_out_chans = enc_out_chans*enc_chan_multiplier    
+        dec_out_chans = dec_out_chans*dec_chan_multiplier
         
         # bridge
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         
         # decoder
-        self.upconv4 = DoubleConv(dec_in_chan_start + enc_out_chans[4], dec_out_chans[0])
-        self.upconv3 = DoubleConv(dec_out_chans[0] + enc_out_chans[3], dec_out_chans[1])
-        self.upconv2 = DoubleConv(dec_out_chans[1] + enc_out_chans[2], dec_out_chans[2])
-        self.upconv1 = DoubleConv(dec_out_chans[2] + enc_out_chans[1], dec_out_chans[3])
+        self.upconv4 = DoubleConv(enc_out_chans[4] + enc_out_chans[3], dec_out_chans[0])
+        self.upconv3 = DoubleConv(dec_out_chans[0] + enc_out_chans[2], dec_out_chans[1])
+        self.upconv2 = DoubleConv(dec_out_chans[1] + enc_out_chans[1], dec_out_chans[2])
+        self.upconv1 = DoubleConv(dec_out_chans[2] + enc_out_chans[0], dec_out_chans[3])
         
         # outputs
         # task 1
@@ -594,16 +647,21 @@ class MultiTaskLandmarkUNet1(nn.Module):
         self.conv4_2 = nn.Conv2d(dec_out_chans[4], out_channels4, kernel_size=1)
 
     def forward(self, x: torch.Tensor, task_id: int):
+        # store the input shape
+        inp_shape = x.shape
         # Down sampling
-        x1 = self.dconv1(x)
-        x2 = self.maxpool(x1)
-        x3 = self.dconv2(x2)
-        x4 = self.maxpool(x3)
-        x5 = self.dconv3(x4)
-        x6 = self.maxpool(x5)
-        x7 = self.dconv4(x6)
-        x8 = self.maxpool(x7)
-        x9 = self.dconv5(x8)
+        if self.backbone_encoder is not None:
+            _, x1, x3, x5, x7, x9 = self.encoder(x)
+        else:
+            x1 = self.dconv1(x)
+            x2 = self.maxpool(x1)
+            x3 = self.dconv2(x2)
+            x4 = self.maxpool(x3)
+            x5 = self.dconv3(x4)
+            x6 = self.maxpool(x5)
+            x7 = self.dconv4(x6)
+            x8 = self.maxpool(x7)
+            x9 = self.dconv5(x8)
 
         # Up sampling
         x = self.upsample(x9)
@@ -618,22 +676,24 @@ class MultiTaskLandmarkUNet1(nn.Module):
         x = self.upsample(x)
         x = torch.cat([x, x1], dim=1)
         x = self.upconv1(x)
-        
+
+        # upsample once more if we have a backbone encoder
+        if self.backbone_encoder is not None:
+            x = self.upsample(x)
+
+        # return the outputs based on the task
         if task_id == 1:
             # Output for task 1: unsupervised image reconstruction
             x = self.conv1_1(x)
             x = self.conv1_2(x)
-        
         elif task_id == 2:
             # Output for task 2: supervised edge detection
             x = self.conv2_1(x)
             x = self.conv2_2(x)
-
         elif task_id == 3:
             # Output for task 3: supervised vertebral landmark detection
             x = self.conv3_1(x)
             x = self.conv3_2(x)
-
         elif task_id == 4:
             # Output for task 4: supervised facial landmark detection
             x = self.conv4_1(x)
@@ -836,7 +896,7 @@ def create_dataloader(
 ) -> torch.utils.data.DataLoader:
     # load metadata
     metadata_table = pd.read_hdf(
-        os.path.join(PARAMS['PRIMARY_DATA_DIRECTORY'], PARAMS['METADATA_TABLE_NAME']),
+        os.path.join(PARAMS.PRIMARY_DATA_DIRECTORY, PARAMS.TRAIN.METADATA_TABLE_NAME),
         key='df',
     )
     # create the right list of paths
@@ -844,14 +904,14 @@ def create_dataloader(
         (metadata_table['split']==split) & (metadata_table['v_annots_present']==True), ['harmonized_id']
     ].to_numpy().ravel().tolist()
     train_file_list = [
-        os.path.join(PARAMS['PRIMARY_DATA_DIRECTORY'], file_path+'.hdf5') for file_path in train_file_list
+        os.path.join(PARAMS.PRIMARY_DATA_DIRECTORY, file_path+'.hdf5') for file_path in train_file_list
     ]
     # instantiate the transforms
     my_transforms = transforms.Compose([
-        ResizeTransform(tuple(PARAMS['TARGET_IMAGE_SIZE'])),
+        ResizeTransform(tuple(PARAMS.TRAIN.TARGET_IMAGE_SIZE)),
         Coord2HeatmapTransform(
-            tuple(PARAMS['TARGET_IMAGE_SIZE']),
-            PARAMS['GAUSSIAN_COORD2HEATMAP_STD'],
+            tuple(PARAMS.TRAIN.TARGET_IMAGE_SIZE),
+            PARAMS.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
         ),
         CustomToTensor(),
     ])
@@ -877,15 +937,16 @@ def create_dataloader(
 
 def trainer_multitask_v_and_f_landmarks():
     # initialize the model
-    model = MultiTaskLandmarkUNet1()
+    model_params = PARAMS.MODEL.PARAMS
+    model = MultiTaskLandmarkUNetCustom(**model_params)
     # initialize dataloader and trainer objects
     train_dataloaders = {}
     val_dataloaders = {}
 
-    for task_config in PARAMS['MULTIPLE_TASKS']:
+    for task_config in PARAMS.TRAIN.MULTIPLE_TASKS:
         # unpack parameters for easier readability
-        task_id = task_config['TASK_ID']
-        batch_size = task_config['BATCH_SIZE']
+        task_id = task_config.TASK_ID
+        batch_size = task_config.BATCH_SIZE
         # initialize dataloader
         train_dataloaders[task_id] = create_dataloader(
             task_id=task_id,
@@ -901,8 +962,8 @@ def trainer_multitask_v_and_f_landmarks():
     pl_model = MultitaskTrainOnlyLandmarks(
         model=model,
     )
-    trainer = pl.Trainer(        
-        max_epochs=PARAMS['MAX_EPOCHS'],
+    trainer = pl.Trainer(
+        max_epochs=PARAMS.TRAIN.MAX_EPOCHS,
         log_every_n_steps=1,
     )
     # run the training
@@ -914,13 +975,14 @@ def trainer_multitask_v_and_f_landmarks():
     return None
 
 
-def trainer_v_landmarks():
+def trainer_v_landmarks_single_task():
     # get the parameters
-    task_config = PARAMS['SINGLE_TASK']
-    task_id = task_config['TASK_ID']
-    batch_size = task_config['BATCH_SIZE']
+    task_config = PARAMS.TRAIN.SINGLE_TASK
+    task_id = task_config.TASK_ID
+    batch_size = task_config.BATCH_SIZE
     # initialize the model
-    model = MultiTaskLandmarkUNet1()
+    model_params = PARAMS.MODEL.PARAMS
+    model = MultiTaskLandmarkUNetCustom(**model_params)
     # initialize dataloader and trainer objects
     # train dataloader
     train_dataloader = create_dataloader(
@@ -939,7 +1001,7 @@ def trainer_v_landmarks():
         model=model,
     )
     trainer = pl.Trainer(        
-        max_epochs=PARAMS['MAX_EPOCHS'],
+        max_epochs=PARAMS.TRAIN.MAX_EPOCHS,
         log_every_n_steps=1,
     )
     # run the training
