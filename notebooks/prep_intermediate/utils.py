@@ -111,7 +111,7 @@ def load_and_clean_image_and_annotations(
     f_annot_dir: Union[str, None],
     unwanted_fields_v_annot: List[str],
     sigma: int = 1,
-) -> Tuple[np.ndarray, Union[Dict, None], np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, Union[Dict, None], np.ndarray]:
     image = load_image(
         image_filename=image_filename,
         image_dir=image_dir,
@@ -163,7 +163,6 @@ def drop_extra_landmarks(
         )
     else:
         return landmarks
-    
 
 
 def write_v_annots(
@@ -282,10 +281,48 @@ def harmonize_hdf5(
         f_annots=f_annots,
         edges=edges,
     )
+    # create metadata
     v_annots_present = True if v_annots is not None else False
+    v_annots_shapes = {
+        'v_annots_2_rows': None,
+        'v_annots_2_cols': None,
+        'v_annots_3_rows': None,
+        'v_annots_3_cols': None,
+        'v_annots_4_rows': None,
+        'v_annots_4_cols': None,
+    }
+    if v_annots_present:
+        for shape in v_annots['shapes']:
+            group_id = str(shape['group_id'])
+            shape = np.array(shape['points']).shape
+            try:
+                if group_id not in ['2','3','4']:
+                    raise ValueError("The group_id of the v_annots is incorrect!")
+            
+                v_annots_shapes[f"v_annots_{group_id}_rows"] = shape[0]
+                v_annots_shapes[f"v_annots_{group_id}_cols"] = shape[1]
+            
+            except Exception as e:
+                print(e)
+            
     f_annots_present = True if f_annots is not None else False
+    if f_annots is not None:
+        f_annots_rows, f_annots_cols = f_annots.shape
+    else:
+        f_annots_rows, f_annots_cols = None, None
     edges_present = True if edges is not None else False
-    return harmonized_id, v_annots_present, f_annots_present, edges_present
+    # store into a dict
+    metadata = {
+        'v_annots_present': v_annots_present,
+        'f_annots_present': f_annots_present,
+        'edges_present': edges_present,
+        'f_annots_rows': f_annots_rows,
+        'f_annots_cols': f_annots_cols,
+        'harmonized_id': harmonized_id,
+    }
+    # merge the two dicts
+    metadata.update(v_annots_shapes)
+    return metadata
 
 
 def read_harmonized_hdf5(
