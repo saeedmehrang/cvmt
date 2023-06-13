@@ -893,6 +893,7 @@ def create_dataloader(
     task_id: int,
     batch_size: int = 16,
     split: str = 'train',
+    shuffle: bool = False,
 ) -> torch.utils.data.DataLoader:
     # load metadata
     metadata_table = pd.read_hdf(
@@ -924,13 +925,12 @@ def create_dataloader(
     collator_task = MultitaskCollator(
         task_id=task_id,
     )
-    shuffle = True if split == 'train' else False
     dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         collate_fn=collator_task,
-        num_workers=4,
+        num_workers=1,
     )
     return dataloader
 
