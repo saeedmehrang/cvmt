@@ -40,14 +40,14 @@ It is best to separate the configuration and hyperparameters from the source cod
 We use python virtual-environment for isolation of our development from the default python. Use the command below in your terminal to create a virtual environment named `venv`. Upgrade the pip version also.
 ```bash
 cd cvmt/
-python3 -m virtualenv -p /usr/bin/python venv
-pip install --upgrade pip
+python3 -m virtualenv -p /usr/bin/python3 venv
 
 ```
 
-Activate the environment and install the dependencies for development work
+Activate the environment and install the dependencies for development work. Note that the torch related packages in requirements-dev are specifically set to CPU mode. If you have GPU available, please visit `pytorch.org` and change package version and --index-url in `requirements-dev.txt` file.
 ```bash
 source venv/bin/activate
-pip install -r requirements-dev.txt
-
+pip3 install --upgrade pip
+pip3 install -r requirements-dev.txt
+pip3 install -e .
 ```
