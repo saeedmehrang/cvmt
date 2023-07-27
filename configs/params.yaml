@@ -1,0 +1,88 @@
+RAW_DATA_DIRECTORY: "data/raw"
+INTERMEDIATE_DATA_DIRECTORY: "data/intermediate"
+PRIMARY_DATA_DIRECTORY: "data/primary"
+ARTIFACTS_DATA_DIRECTORY: "artifacts"
+
+# raw stage data config
+RAW:
+  DATASET_1:
+    RAW_ZIP_FILE_NAME: "radiography-20221212T190109Z-001.zip"
+    RAW_ZIP_NEW_ANNOT_FILE_NAME: "label_edited-20230122T143005Z-001.zip"
+    INTERMEDIATE_DIR_NAME: "dataset_1"
+    UNWANTED_JSON_FIELDS: ['imageData']
+
+  DATASET_3:
+    RAW_RAR_FILE_NAME: "RawImage.rar"
+    RAW_DIR_NAME_TEMP: "dataset_3_bmp"
+    RAW_DIR_NAME: "dataset_3_raw_data"
+
+# intermediate stage data config
+INTERM:
+  UNWANTED_JSON_FIELDS: ['imageData', 'imagePath']
+
+  DATASET_1:
+    DIR_NAME: "dataset_1_interm_data-20230513T084705Z-001"
+    IMG_DIR_NAME: ["image"]
+    V_LANDMARKS_DIR_NAME: ["label"]
+    F_LANDMARKS_DIR_NAME: null
+
+  DATASET_2:
+    DIR_NAME: "dataset_2_interm_data-20230304T160421Z-001"
+    IMG_DIR_NAME: ["image"]
+    V_LANDMARKS_DIR_NAME: ["label"]
+    F_LANDMARKS_DIR_NAME: null
+
+  DATASET_3:
+    DIR_NAME: "dataset_3_interm_data-20230304T160433Z-001"
+    IMG_DIR_NAME: ["training/image", "test1/image", "test2/image"]
+    V_LANDMARKS_DIR_NAME: ["training/label", "test1/label", "test2/label"] 
+    F_LANDMARKS_DIR_NAME: "AnnotationsByMD/400_senior"
+
+# primary stage data config
+PRIMARY:
+  DATASET_1:
+    EDGE_DETECT_SIGMA: 3
+  DATASET_2:
+    EDGE_DETECT_SIGMA: 3
+  DATASET_3:
+    EDGE_DETECT_SIGMA: 3
+
+ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"
+
+# training: primary stage data config
+TRAIN:
+  METADATA_TABLE_NAME: 'metadata.hdf5'
+  DATASETS_TO_INCLUDE: ['dataset_2', 'dataset_3']
+  TARGET_IMAGE_SIZE: [256, 256] # H, W - change this when enough RAM is available
+  GAUSSIAN_COORD2HEATMAP_STD: 3
+  MULTIPLE_TASKS:
+    - TASK_ID: 3
+      BATCH_SIZE: 16
+      SHUFFLE: False
+    - TASK_ID: 4
+      BATCH_SIZE: 16
+      SHUFFLE: False
+  SINGLE_TASK:
+    TASK_ID: 3
+    BATCH_SIZE: 16
+    SHUFFLE: False
+  MAX_EPOCHS: 2
+
+MODEL:
+  DEVICE: "cuda"
+  PARAMS:
+    backbone_encoder: "efficientnet-b4"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
+    backbone_weights: "imagenet"
+    freeze_backbone: True
+    enc_chan_multiplier: 1
+    dec_chan_multiplier: 1
+    enc_out_chans: [4, 8, 16, 32, 64]
+    dec_out_chans: [64, 32, 16, 8, 4]
+    enc_chan_multiplier: 1
+    dec_chan_multiplier: 1
+    in_channels: 1
+    out_channels1: 1
+    out_channels2: 1
+    out_channels3: 13
+    out_channels4: 19
+

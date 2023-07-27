@@ -1,23 +1,17 @@
+import hashlib
 import json
 import os
-import yaml
-import shutil
-import glob
-from typing import List, Dict, Tuple, Union, Any
-from numbers import Number
-import h5py
-from PIL import Image
-import numpy as np
-import hashlib
-from scipy.spatial.distance import pdist
 from itertools import combinations
-from skimage.feature import canny
+from numbers import Number
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
+
+import h5py
+import numpy as np
+from PIL import Image
 from scipy.ndimage import gaussian_gradient_magnitude
-
-
-with open("../../code_configs/params.yaml") as f:
-    params = yaml.safe_load(f)
-
+from scipy.spatial.distance import pdist
+from skimage.feature import canny
 
 CORRECT_V_LANDMARKS_SHAPE = {
     '2': 3, '3': 5, '4': 5,
@@ -259,6 +253,8 @@ def harmonize_hdf5(
     image_dir: str,
     v_annot_dir: str,
     f_annot_dir: str,
+    unwanted_json_fields: Any,
+    primary_data_dir: Union[str, Path],
     sigma: int = 1,
 ) -> Tuple[str, str, bool, bool]:
     image, edges, v_annots, f_annots = load_and_clean_image_and_annotations(
@@ -266,7 +262,7 @@ def harmonize_hdf5(
         image_dir=image_dir,
         v_annot_dir=v_annot_dir,
         f_annot_dir=f_annot_dir,
-        unwanted_fields_v_annot=params['UNWANTED_JSON_FIELDS'],
+        unwanted_fields_v_annot=unwanted_json_fields,
         sigma=sigma,
     )
     harmonized_id = create_hash_code(
@@ -274,7 +270,7 @@ def harmonize_hdf5(
         image_filename=image_filename,
     )
     save_image_and_annots_hdf5(
-        save_dir=params['PRIMARY_DATA_DIRECTORY'],
+        save_dir=primary_data_dir,
         harmonized_id=harmonized_id,
         image=image,
         v_annots=v_annots,
@@ -327,8 +323,9 @@ def harmonize_hdf5(
 
 def read_harmonized_hdf5(
     h5py_filename: str,
+    primary_data_dir: Union[str, Path],
 ):
-    h5py_file = os.path.join(params['PRIMARY_DATA_DIRECTORY'], h5py_filename)
+    h5py_file = os.path.join(primary_data_dir, h5py_filename)
     f = h5py.File(h5py_file, 'r')
     # read image
     image = f['image']['data'][:]
