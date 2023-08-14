@@ -86,3 +86,8 @@ MODEL:
     out_channels3: 13
     out_channels4: 19
 
+WANDB:
+  INIT:
+    project: "cephal-landmark-detection"
+    notes: "First try!"
+    tags: ["baseline", "efficientnet-b4"]

@@ -6,6 +6,9 @@ from easydict import EasyDict
 from cvmt.data import prep_all_datasets
 from cvmt.ml import train_test_split, trainer_v_landmarks_single_task
 from cvmt.utils import load_yaml_params, nested_dict_to_easydict
+import wandb
+import os
+
 
 FUNCTION_NAMES = ["data_prep", "train_test_split", "train"]
 CONFIG_PARAMS_PATH = "configs/params.yaml"
@@ -26,7 +29,20 @@ def main(
     else:
         # Get the function name from command-line arguments
         function_name = sys.argv[1]
-
+    # setup wandb
+    try:
+        # make sure not to re-use an old run
+        wandb.finish()
+        # login to the wandb sever and initialize
+        wandb.login()
+        config = dict(params)
+        run = wandb.init(**params.WANDB.INIT, config=config)
+    except Exception as e:
+        print(e)
+        print(
+            "Make sure to export your private `wandb_api_key` into your terminal."
+            "Alternatively, follow the instructions in the README for the creation of a `.env` file in your configs directory."
+        )
     # Execute the selected function
     if function_name == FUNCTION_NAMES[0]:
         print(f"** Running {function_name}")
