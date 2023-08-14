@@ -17,3 +17,4 @@ lightning~=2.0.2
 tensorboard~=2.13.0
 easydict~=1.10
 PyYAML
+wandb

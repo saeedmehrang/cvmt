@@ -2,10 +2,12 @@
 
 import os
 
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 from easydict import EasyDict
+from pytorch_lightning.loggers import WandbLogger
 from torch import nn
 from torch.utils.data import DataLoader
 from torchmetrics import MeanSquaredError
@@ -111,9 +113,11 @@ class SingletaskTrainLandmarks(pl.LightningModule):
         x = x.to(torch.float32)
         preds = self.model(x, task_id=task_id)
         loss = nn.CrossEntropyLoss()(preds, y)
-        self.log(f'train_loss_{task_id}', loss)
+        self.log(f'train_loss', loss)
         self.train_mse.update(preds, y)
-        self.log(f'train_mse_{task_id}', self.train_mse)
+        self.log(f'train_mse', self.train_mse)
+        train_mre = mean_radial_error(preds, y)
+        self.log("train_mre", train_mre)
         return loss
 
     def configure_optimizers(self):
@@ -131,9 +135,11 @@ class SingletaskTrainLandmarks(pl.LightningModule):
         x = x.to(torch.float32)
         preds = self.model(x, task_id=task_id)
         loss = nn.CrossEntropyLoss()(preds, y)
-        self.log(f'val_loss_{task_id}', loss)
+        self.log(f'val_loss', loss)
         self.val_mse.update(preds, y)
-        self.log(f'val_mse_{task_id}', self.val_mse)
+        self.log(f'val_mse', self.val_mse)
+        val_mre = mean_radial_error(preds, y)
+        self.log("val_mre", val_mre)
 
 
 def create_dataloader(
@@ -254,9 +260,11 @@ def trainer_v_landmarks_single_task(params: EasyDict):
     pl_model = SingletaskTrainLandmarks(
         model=model,
     )
+    wandb_logger = WandbLogger()
     trainer = pl.Trainer(        
         max_epochs=params.TRAIN.MAX_EPOCHS,
         log_every_n_steps=1,
+        logger=wandb_logger,
     )
     # run the training
     trainer.fit(
@@ -271,3 +279,25 @@ class MeanSquaredError_(MeanSquaredError):
     def __init__(self, name):
         super().__init__()
         self.name = name
+
+
+def mean_radial_error(preds:torch.Tensor, targets: torch.Tensor,) -> int:
+    def max_indices_4d_tensor(inp_tensor: torch.Tensor):
+        inp_tensor = inp_tensor.numpy()
+        bi, chi, h, w = inp_tensor.shape
+        indices = np.zeros((bi, chi, 2))
+        for b in range(bi):
+            for c in range(chi):
+                heatmap = inp_tensor[b, c, :, :]
+                max_inds = np.unravel_index(heatmap.argmax(), heatmap.shape)
+                indices[b,c,:] = np.array(max_inds)
+        return indices
+    with torch.no_grad():
+        # Find the indices of the maximum value in each channel
+        pred_indices = max_indices_4d_tensor(preds)
+        target_indices = max_indices_4d_tensor(targets)
+
+        # calculate the euclidean distances and then their mean
+        distances = np.sqrt(np.sum((target_indices - pred_indices)**2, axis=1))
+        mre = np.mean(distances)
+    return mre
