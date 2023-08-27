@@ -1,14 +1,14 @@
 """ The main function that is the interface to the package cvmt """
+import os
 import sys
 
+import wandb
 from easydict import EasyDict
 
 from cvmt.data import prep_all_datasets
 from cvmt.ml import train_test_split, trainer_v_landmarks_single_task
-from cvmt.utils import load_yaml_params, nested_dict_to_easydict
-import wandb
-import os
-
+from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
+                        remove_lightning_logs_dir)
 
 FUNCTION_NAMES = ["data_prep", "train_test_split", "train"]
 CONFIG_PARAMS_PATH = "configs/params.yaml"
@@ -65,6 +65,8 @@ def main(
         train_test_split(params)
         print("****** Running trainer_v_landmarks_single_task ****** ")
         trainer_v_landmarks_single_task(params)
+    # TODO! remove the unnecessary lightning_logs directory!
+    # remove_lightning_logs_dir()
     return None
 
 

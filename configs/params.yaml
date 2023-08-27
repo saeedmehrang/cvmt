@@ -66,12 +66,12 @@ TRAIN:
     TASK_ID: 3
     BATCH_SIZE: 16
     SHUFFLE: False
-  MAX_EPOCHS: 2
+  MAX_EPOCHS: 3
 
 MODEL:
   DEVICE: "cuda"
   PARAMS:
-    backbone_encoder: "efficientnet-b4"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
+    backbone_encoder: "efficientnet-b0"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
     backbone_weights: "imagenet"
     freeze_backbone: True
     enc_chan_multiplier: 1
@@ -90,4 +90,6 @@ WANDB:
   INIT:
     project: "cephal-landmark-detection"
     notes: "First try!"
-    tags: ["baseline", "efficientnet-b4"]
+    tags: ["baseline", "efficientnet-b0"]
+  CHECKPOINTING:
+    dir: "artifacts/artifacts"
