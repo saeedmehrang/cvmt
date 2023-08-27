@@ -7,6 +7,7 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 from easydict import EasyDict
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from torch import nn
 from torch.utils.data import DataLoader
@@ -93,10 +94,20 @@ class MultitaskTrainOnlyLandmarks(pl.LightningModule):
 
 
 class SingletaskTrainLandmarks(pl.LightningModule):
+    """ PL module for training a UNET model for vertebral landmark detection.
+    
+    See the issue below for why a pytorch lightning model cannot be loaded from checkpoint with hparams saved
+    and how to use pytorch lighning module to enable using a model that is defined outside a pl module.
+
+    https://github.com/Lightning-AI/lightning/issues/3629#issue-707536217
+    """
     def __init__(self, model, *args, **kwargs,):
         super().__init__(*args, **kwargs,)
         # model
         self.model = model    
+
+        self.save_hyperparameters(logger=True,)
+        self.hparams.update(self.model.hparams)
 
         # metrics
         self.train_mse = MeanSquaredError_(name="train_mse")
@@ -113,11 +124,11 @@ class SingletaskTrainLandmarks(pl.LightningModule):
         x = x.to(torch.float32)
         preds = self.model(x, task_id=task_id)
         loss = nn.CrossEntropyLoss()(preds, y)
-        self.log(f'train_loss', loss)
+        self.log(f'train_loss', loss, on_step=True, on_epoch=True, logger=True)
         self.train_mse.update(preds, y)
-        self.log(f'train_mse', self.train_mse)
+        self.log(f'train_mse', self.train_mse, on_step=True, on_epoch=True, logger=True)
         train_mre = mean_radial_error(preds, y)
-        self.log("train_mre", train_mre)
+        self.log("train_mre", train_mre, on_step=True, on_epoch=True, logger=True)
         return loss
 
     def configure_optimizers(self):
@@ -135,11 +146,11 @@ class SingletaskTrainLandmarks(pl.LightningModule):
         x = x.to(torch.float32)
         preds = self.model(x, task_id=task_id)
         loss = nn.CrossEntropyLoss()(preds, y)
-        self.log(f'val_loss', loss)
+        self.log(f'val_loss', loss, prog_bar=True, logger=True)
         self.val_mse.update(preds, y)
-        self.log(f'val_mse', self.val_mse)
+        self.log(f'val_mse', self.val_mse, prog_bar=True, logger=True)
         val_mre = mean_radial_error(preds, y)
-        self.log("val_mre", val_mre)
+        self.log("val_mre", val_mre, prog_bar=True, logger=True)
 
 
 def create_dataloader(
@@ -260,11 +271,22 @@ def trainer_v_landmarks_single_task(params: EasyDict):
     pl_model = SingletaskTrainLandmarks(
         model=model,
     )
-    wandb_logger = WandbLogger()
-    trainer = pl.Trainer(        
+    wandb_logger = WandbLogger(
+        log_model='all',
+        save_dir=params.WANDB.CHECKPOINTING.dir,
+    )
+    checkpoint_callback = ModelCheckpoint(
+        monitor='val_mre', 
+        mode='min',
+        dirpath=params.WANDB.CHECKPOINTING.dir,
+        save_top_k=1,
+    )
+    trainer = pl.Trainer(
+        default_root_dir=params.WANDB.CHECKPOINTING.dir, 
         max_epochs=params.TRAIN.MAX_EPOCHS,
-        log_every_n_steps=1,
         logger=wandb_logger,
+        callbacks=[checkpoint_callback],
+        log_every_n_steps=5,
     )
     # run the training
     trainer.fit(

@@ -6,9 +6,10 @@ import numpy as np
 import torch
 from segmentation_models_pytorch.encoders import get_encoder
 from torch import nn
+import pytorch_lightning as pl
 
 
-class MultiTaskLandmarkUNetCustom(nn.Module):
+class MultiTaskLandmarkUNetCustom(pl.LightningModule):
     """Multi-task U-Net architecture for landmark detection and image processing tasks"""
 
     def __init__(
