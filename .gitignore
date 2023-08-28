@@ -53,3 +53,5 @@ artifacts/
 *logs*/
 *log*/
 
+# wandb
+wandb/
