@@ -55,3 +55,6 @@ artifacts/
 
 # wandb
 wandb/
+
+# data directory inside package code
+!cvmt/data

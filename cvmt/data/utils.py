@@ -175,7 +175,7 @@ def write_v_annots(
         grp_shape.attrs['label'] = shape['label']
         grp_shape.attrs['shape_type'] = shape['shape_type']
         points = np.array(shape['points']).astype(int)
-        grp_shape.create_dataset('points', data=points)        
+        grp_shape.create_dataset('points', data=points, compression='gzip', compression_opts=9)        
     return True
 
 
@@ -185,7 +185,7 @@ def write_f_annots(
 ) -> bool:
     f_annots_data_grp = f.create_group("f_landmarks")
     points = np.array(f_annots).astype(int)
-    f_annots_data_grp.create_dataset('points', data=points)
+    f_annots_data_grp.create_dataset('points', data=points, compression='gzip', compression_opts=9)
     return True
 
 
@@ -194,7 +194,7 @@ def write_image(
     image: np.ndarray,
 ) -> bool:
     image_data_grp = f.create_group("image")
-    image_data_grp.create_dataset('data', data=image)
+    image_data_grp.create_dataset('data', data=image, compression='gzip', compression_opts=9)
     return True
 
 
@@ -215,7 +215,7 @@ def save_image_and_annots_hdf5(
             "The file exsist! Either remove the existing file or change the save directory!"
         )
     # create the hdf5 file handle    
-    f = h5py.File(filepath, 'w')
+    f = h5py.File(filepath, 'w', )
     # write image data
     write_image(f, image)
     # write edges data
@@ -244,7 +244,7 @@ def create_hash_code(
     image_filename: str,
 ):
     fname = os.path.join(image_dir, image_filename)
-    hashcode = hashlib.sha256(fname.encode('utf-8')).hexdigest()
+    hashcode = hashlib.blake2b(fname.encode('utf-8'), digest_size=10).hexdigest()
     return hashcode
 
     
@@ -255,6 +255,8 @@ def harmonize_hdf5(
     f_annot_dir: str,
     unwanted_json_fields: Any,
     primary_data_dir: Union[str, Path],
+    dataset_name: str,
+    dev_set: str,
     sigma: int = 1,
 ) -> Tuple[str, str, bool, bool]:
     image, edges, v_annots, f_annots = load_and_clean_image_and_annotations(
@@ -315,6 +317,9 @@ def harmonize_hdf5(
         'f_annots_rows': f_annots_rows,
         'f_annots_cols': f_annots_cols,
         'harmonized_id': harmonized_id,
+        'source_image_filename': image_filename,
+        'dataset': dataset_name,
+        'dev_set': dev_set,
     }
     # merge the two dicts
     metadata.update(v_annots_shapes)
@@ -385,7 +390,7 @@ def write_edges(
     edges: np.ndarray,
 ) -> bool:
     edges_data_grp = f.create_group("edges")
-    edges_data_grp.create_dataset('data', data=edges)
+    edges_data_grp.create_dataset('data', data=edges, compression='gzip', compression_opts=9)
     return True
 
 
