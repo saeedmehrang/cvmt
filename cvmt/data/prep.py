@@ -8,12 +8,15 @@ Finally, the primary zone data are created programmatically from the intermediat
 """
 
 import os
+from functools import partial
 from pathlib import Path
-from typing import Any, Union, Dict
+from typing import Any, Dict, Union
 
 import numpy as np
 import pandas as pd
+import ray
 from easydict import EasyDict
+from ray.util.multiprocessing import Pool
 
 from .utils import harmonize_hdf5
 
@@ -31,6 +34,7 @@ class PrepDataset:
         unwanted_json_fields: Any,
         edge_sigma: float,
         dataset_name: str = "dataset_1",
+        n_processes: int = -1,
     ) -> None:
         """
         
@@ -53,7 +57,16 @@ class PrepDataset:
         self.interm_f_lmks_dir_name = interm_f_lmks_dir_name
         self.edge_sigma = edge_sigma
         self.dataset_name = dataset_name
-       
+
+        # initialize Ray
+        ray.init()
+        ray_cpus = int(ray._private.state.cluster_resources()["CPU"])
+        if n_processes == -1:
+            n_processes = ray_cpus
+        if n_processes > ray_cpus:
+            n_processes = ray_cpus
+        self.pool = Pool(processes=n_processes)
+
     def __call__(self,) -> pd.DataFrame:
         metadata = []
         # construct the path variables
@@ -86,25 +99,20 @@ class PrepDataset:
                 self.dev_set = img_foldername.split('/')[0]
             else:
                 self.dev_set = None
- 
+            # initialize the parallel function
+            harmonize_hdf5_ = partial(
+                harmonize_hdf5,
+                image_dir=self.image_dir,
+                v_annot_dir=self.v_landmarks_dir,
+                f_annot_dir=self.f_landmarks_dir,
+                sigma=self.edge_sigma,
+                primary_data_dir=self.primary_data_dir,
+                unwanted_json_fields=self.unwanted_json_fields,
+                dataset_name=self.dataset_name,
+                dev_set=self.dev_set,
+            )
             # Traverse the images and harmonize them one by one
-            for image_filename in self.image_filenames:
-                record_metadata = harmonize_hdf5(
-                    image_filename=image_filename,
-                    image_dir=self.image_dir,
-                    v_annot_dir=self.v_landmarks_dir,
-                    f_annot_dir=self.f_landmarks_dir,
-                    sigma=self.edge_sigma,
-                    primary_data_dir=self.primary_data_dir,
-                    unwanted_json_fields=self.unwanted_json_fields,
-                )
-                record_metadata.update(
-                    {
-                        'source_image_filename': image_filename,
-                        'dataset': self.dataset_name,
-                        'dev_set': self.dev_set,
-                    }
-                )
+            for record_metadata in self.pool.map(harmonize_hdf5_, self.image_filenames):
                 metadata.append(record_metadata)
 
         # create a metadata pandas dataframe
@@ -117,6 +125,8 @@ class PrepDataset:
             append=True,
             format='table',
         )
+        # shutdown ray
+        ray.shutdown()
         return metadata
 
 
@@ -136,6 +146,7 @@ def prep_all_datasets(params: EasyDict):
         unwanted_json_fields=params.INTERM.UNWANTED_JSON_FIELDS,
         edge_sigma=params.PRIMARY.DATASET_1.EDGE_DETECT_SIGMA,
         dataset_name="dataset_1",
+        n_processes=params.INTERM.N_PROCESSES,
     )
     # call
     dataset_1_prep()
@@ -151,6 +162,7 @@ def prep_all_datasets(params: EasyDict):
         unwanted_json_fields=params.INTERM.UNWANTED_JSON_FIELDS,
         edge_sigma=params.PRIMARY.DATASET_2.EDGE_DETECT_SIGMA,
         dataset_name="dataset_2",
+        n_processes=params.INTERM.N_PROCESSES,
     )
     # call
     dataset_2_prep()
@@ -166,6 +178,7 @@ def prep_all_datasets(params: EasyDict):
         unwanted_json_fields=params.INTERM.UNWANTED_JSON_FIELDS,
         edge_sigma=params.PRIMARY.DATASET_3.EDGE_DETECT_SIGMA,
         dataset_name="dataset_3",
+        n_processes=params.INTERM.N_PROCESSES,
     )
     # call
     dataset_3_prep()
@@ -181,6 +194,7 @@ def prep_all_datasets(params: EasyDict):
         unwanted_json_fields=params.INTERM.UNWANTED_JSON_FIELDS,
         edge_sigma=params.PRIMARY.DATASET_4.EDGE_DETECT_SIGMA,
         dataset_name="dataset_4",
+        n_processes=params.INTERM.N_PROCESSES,
     )
     # call
     dataset_4_prep()
