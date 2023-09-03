@@ -167,7 +167,7 @@ def create_dataloader(
     )
     # create the right list of paths
     train_file_list = metadata_table.loc[
-        (metadata_table['split']==split) & (metadata_table['v_annots_present']==True), ['harmonized_id']
+        (metadata_table['split']==split) & (metadata_table['valid_v_annots']==True), ['harmonized_id']
     ].to_numpy().ravel().tolist()
     train_file_list = [
         os.path.join(params.PRIMARY_DATA_DIRECTORY, file_path+'.hdf5') for file_path in train_file_list
