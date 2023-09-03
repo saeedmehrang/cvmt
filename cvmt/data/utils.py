@@ -75,6 +75,8 @@ def load_and_clean_vertebral_annots(
         except Exception as e:
             print(e)
             print("Error above encountered! V landmarks set to None.")
+            v_annots = None
+            return v_annots
     return v_annots
 
 
@@ -193,6 +195,7 @@ def write_image(
     f: h5py._hl.files.File,
     image: np.ndarray,
 ) -> bool:
+    image = image.astype(np.float16,)
     image_data_grp = f.create_group("image")
     image_data_grp.create_dataset('data', data=image, compression='gzip', compression_opts=9)
     return True
@@ -271,6 +274,10 @@ def harmonize_hdf5(
         image_dir=image_dir,
         image_filename=image_filename,
     )
+    # check integrity of annotations
+    invalid_v_annots, v_annots, v_annots_shapes = check_v_annots_integrity(v_annots)
+    invalid_f_annots, f_annots, f_annots_shapes = check_f_annots_integrity(f_annots)
+    # write the data
     save_image_and_annots_hdf5(
         save_dir=primary_data_dir,
         harmonized_id=harmonized_id,
@@ -279,7 +286,25 @@ def harmonize_hdf5(
         f_annots=f_annots,
         edges=edges,
     )
-    # create metadata
+    # create metadata and store into a dict
+    edges_present = True if edges is not None else False
+    metadata = {
+        'valid_v_annots': not(invalid_v_annots),
+        'valid_f_annots': not(invalid_f_annots),
+        'edges_present': edges_present,
+        'harmonized_id': harmonized_id,
+        'source_image_filename': image_filename,
+        'dataset': dataset_name,
+        'dev_set': dev_set,
+    }
+    # merge the two dicts
+    metadata.update(v_annots_shapes)
+    metadata.update(f_annots_shapes)
+    return metadata
+
+
+def check_v_annots_integrity(v_annots: Dict[str, Any]) -> Tuple[bool, Union[None, Dict[str, Any]], Dict[str, Any]]:
+    invalid = False
     v_annots_present = True if v_annots is not None else False
     v_annots_shapes = {
         'v_annots_2_rows': None,
@@ -289,42 +314,62 @@ def harmonize_hdf5(
         'v_annots_4_rows': None,
         'v_annots_4_cols': None,
     }
-    if v_annots_present:
-        for shape in v_annots['shapes']:
-            group_id = str(shape['group_id'])
-            shape = np.array(shape['points']).shape
-            try:
-                if group_id not in ['2','3','4']:
-                    raise ValueError("The group_id of the v_annots is incorrect!")
-            
-                v_annots_shapes[f"v_annots_{group_id}_rows"] = shape[0]
-                v_annots_shapes[f"v_annots_{group_id}_cols"] = shape[1]
-            
-            except Exception as e:
-                print(e)
-            
-    f_annots_present = True if f_annots is not None else False
-    if f_annots is not None:
-        f_annots_rows, f_annots_cols = f_annots.shape
-    else:
-        f_annots_rows, f_annots_cols = None, None
-    edges_present = True if edges is not None else False
-    # store into a dict
-    metadata = {
-        'v_annots_present': v_annots_present,
-        'f_annots_present': f_annots_present,
-        'edges_present': edges_present,
-        'f_annots_rows': f_annots_rows,
-        'f_annots_cols': f_annots_cols,
-        'harmonized_id': harmonized_id,
-        'source_image_filename': image_filename,
-        'dataset': dataset_name,
-        'dev_set': dev_set,
-    }
-    # merge the two dicts
-    metadata.update(v_annots_shapes)
-    return metadata
+    # return early if not present
+    if not v_annots_present:
+        # return the dict with invaid True and v_annots None
+        invalid = True
+        return invalid, v_annots, v_annots_shapes
+    # Next, check the shapes
+    try:
+        if len(v_annots['shapes']) != 3:
+            raise ValueError(f"There are {len(v_annots['shapes'])} shapes in the v_annots!")
+    except Exception as e:
+        print(e)
+        invalid = True
+        v_annots = None
+        # return the dict with invaid True and v_annots None
+        return invalid, v_annots, v_annots_shapes
+    # next, check each gorup shapes
+    for shape in v_annots['shapes']:
+        group_id = str(shape['group_id'])
+        shape = np.array(shape['points']).shape
+        try:
+            if group_id not in ['2','3','4']:
+                raise ValueError("The group_id of the v_annots is incorrect!")
 
+            v_annots_shapes[f"v_annots_{group_id}_rows"] = shape[0]
+            v_annots_shapes[f"v_annots_{group_id}_cols"] = shape[1]
+
+        except Exception as e:
+            print(e)
+            invalid = True
+            v_annots = None
+            # return the dict with invaid True and v_annots None
+            return invalid, v_annots, v_annots_shapes
+    return invalid, v_annots, v_annots_shapes
+
+
+def check_f_annots_integrity(f_annots: np.ndarray,) -> Tuple[bool, Union[None, Dict[str, Any]], Dict[str, Any]]:
+    invalid = False
+    f_annots_shapes = {
+        'f_annots_rows': None,
+        'f_annots_cols': None,
+    }
+    f_annots_present = True if f_annots is not None else False
+    if f_annots_present:
+        try:
+            f_annots_rows, f_annots_cols = f_annots.shape
+            f_annots_shapes['f_annots_rows'] = f_annots_rows
+            f_annots_shapes['f_annots_cols'] = f_annots_cols
+        except Exception as e:
+            print(e)
+            invalid = True
+            f_annots = None
+            return invalid, f_annots, f_annots_shapes
+    else:
+        invalid = True
+    return invalid, f_annots, f_annots_shapes
+        
 
 def read_harmonized_hdf5(
     h5py_filename: str,
@@ -369,7 +414,6 @@ def compute_edges_canny(
     sigma: int = 1,
 ) -> np.ndarray:
     edges = canny(image, sigma=sigma)
-    edges = edges.astype(int)
     return edges
 
 
@@ -381,7 +425,6 @@ def compute_edges_ggm(
     image = image / 255.0
     # compute edges
     edges = gaussian_gradient_magnitude(image, sigma=sigma)
-    edges = edges.astype(float)
     return edges
 
 
@@ -389,6 +432,7 @@ def write_edges(
     f: h5py._hl.files.File,
     edges: np.ndarray,
 ) -> bool:
+    edges = edges.astype(np.float16,)
     edges_data_grp = f.create_group("edges")
     edges_data_grp.create_dataset('data', data=edges, compression='gzip', compression_opts=9)
     return True

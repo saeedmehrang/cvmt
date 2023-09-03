@@ -61,7 +61,7 @@ ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"
 # training: primary stage data config
 TRAIN:
   METADATA_TABLE_NAME: 'metadata.hdf5'
-  DATASETS_TO_INCLUDE: ['dataset_2', 'dataset_3']
+  DATASETS_TO_INCLUDE: ['dataset_1', 'dataset_2', 'dataset_3', 'dataset_4']
   TARGET_IMAGE_SIZE: [256, 256] # H, W - change this when enough RAM is available
   GAUSSIAN_COORD2HEATMAP_STD: 3
   MULTIPLE_TASKS:
@@ -75,7 +75,7 @@ TRAIN:
     TASK_ID: 3
     BATCH_SIZE: 16
     SHUFFLE: False
-  MAX_EPOCHS: 3
+  MAX_EPOCHS: 6
 
 MODEL:
   DEVICE: "cuda"

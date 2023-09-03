@@ -21,7 +21,7 @@ def train_test_split(params: EasyDict) -> None:
     # for more information see the function `cvmt.data.prep.prep_all_datasets`.
     selected_samples = metadata_table.loc[
         (metadata_table['dataset'].isin(params.TRAIN.DATASETS_TO_INCLUDE)) & (
-            metadata_table['valid'] == True
+            metadata_table['valid_v_annots'] == True
         ),
         ['harmonized_id', 'dataset']
     ]

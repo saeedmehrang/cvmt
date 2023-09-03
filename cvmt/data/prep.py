@@ -226,7 +226,7 @@ def merge_metadata_tables(params: EasyDict):
     )
     metadata_table_all.reset_index(drop=True, inplace=True)
     # add validty column
-    metadata_table_all = create_validity_column(metadata_table=metadata_table_all)
+    # metadata_table_all = create_validity_column(metadata_table=metadata_table_all)
     # write to disk
     metadata_table_all.to_hdf(
         os.path.join(params.PRIMARY_DATA_DIRECTORY, 'metadata.hdf5'),
@@ -242,12 +242,12 @@ def create_validity_column(
     validty_arr = np.repeat(True, metadata_table.shape[0],)
     invalid_rows = metadata_table[
         (
-            (metadata_table['v_annots_present'] == True) & (
+            (metadata_table['v_annots_valid'] == True) & (
             (metadata_table['v_annots_2_rows'] != 3) | 
             (metadata_table['v_annots_3_rows'] != 5) | 
             (metadata_table['v_annots_4_rows'] != 5))
         ) | (
-            (metadata_table['f_annots_present'] == True) & (
+            (metadata_table['f_annots_valid'] == True) & (
             metadata_table['f_annots_rows'] != 19)
         )
     ]

@@ -84,6 +84,8 @@ class HDF5MultitaskDataset(Dataset):
             v_landmarks = np.concatenate(v_landmarks)
             if self.landmark_shapes['v_landmarks'] == v_landmarks.shape:
                 data_dict['v_landmarks'] = v_landmarks
+        else:
+            raise ValueError(f"The following file does not have v_landmarks! {self.file_paths[index]}")
         f.close()
         return data_dict
     
@@ -172,9 +174,9 @@ class MultitaskCollator(object):
         """
         self.label_key = self.supervised_training_keys[self.task_id]
         # filter out samples with missing labels, in reality only very few samples should be dropped
-        batch = [sample for sample in batch if sample[self.label_key] != None]
-        if len(batch) == 0:
-            return None
+        for sample in batch:
+            if sample[self.label_key] is None or self.label_key not in sample:
+                raise ValueError("Malformed file, missing v_landmarks!")
 
         # collate remaining samples as before
         images = torch.stack([sample['image'] for sample in batch])
@@ -307,7 +309,9 @@ class ResizeTransform(object):
         # create the new height and width
         new_h, new_w = int(new_h), int(new_w)
         # resize the image
+        image = image.astype(np.float32)
         resized_image = cv2.resize(image, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
+        resized_image = resized_image.astype(np.float16)
         # create the new output dict
         resized_sample = {'image': resized_image,}
         # h and w are swapped for landmarks because for images,
@@ -322,7 +326,9 @@ class ResizeTransform(object):
             resized_sample['f_landmarks'] = f_landmarks
         if 'edges' in sample and sample['edges'] is not None:
             edges = sample['edges']
+            edges = edges.astype(np.float32)
             resized_edges = cv2.resize(edges, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
+            resized_edges = resized_edges.astype(np.float16)
             resized_sample['edges'] = resized_edges
         return resized_sample
 
