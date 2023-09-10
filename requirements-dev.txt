@@ -18,4 +18,4 @@ tensorboard~=2.13.0
 easydict~=1.10
 PyYAML
 wandb
-Ray
+Ray~=2.6.3

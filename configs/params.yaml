@@ -44,6 +44,7 @@ INTERM:
     IMG_DIR_NAME: ["image"]
     V_LANDMARKS_DIR_NAME: ["label"]
     F_LANDMARKS_DIR_NAME: null
+    AGE_DATA_TABLE_NAME: "dataset_4_age.csv"
 
 # primary stage data config
 PRIMARY:
