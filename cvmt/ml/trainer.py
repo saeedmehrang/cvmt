@@ -161,7 +161,7 @@ def create_dataloader(
     split: str,
     batch_size: int,
     shuffle: bool,
-    transforms_off: bool=False,
+    aug_transforms_off: bool=False,
 ) -> torch.utils.data.DataLoader:
     # load metadata
     metadata_table = pd.read_hdf(
@@ -176,8 +176,7 @@ def create_dataloader(
         os.path.join(params.PRIMARY_DATA_DIRECTORY, file_path+'.hdf5') for file_path in train_file_list
     ]
     # instantiate the transforms
-    my_transforms = None
-    if not transforms_off:
+    if not aug_transforms_off:
         my_transforms = transforms.Compose([
             ResizeTransform(tuple(params.TRAIN.TARGET_IMAGE_SIZE)),
             Coord2HeatmapTransform(
@@ -190,6 +189,16 @@ def create_dataloader(
             RandomHorFlip(0.25),
             GaussianBlurTransform(kernel_size=3, sigma=0.2, p=0.2),
             RightResizedCrop(width_scale=(0.8,1.0,), p=0.5)
+        ])
+    else:
+        my_transforms = transforms.Compose([
+            ResizeTransform(tuple(params.TRAIN.TARGET_IMAGE_SIZE)),
+            Coord2HeatmapTransform(
+                tuple(params.TRAIN.TARGET_IMAGE_SIZE),
+                params.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
+            ),
+            CustomScaleto01(),
+            CustomToTensor(),
         ])
     # instantiate the dataset and dataloader objects
     dataset = HDF5MultitaskDataset(
@@ -276,7 +285,7 @@ def trainer_v_landmarks_single_task(params: EasyDict):
         split='val',
         shuffle=shuffle,
         params=params,
-        transforms_off=True,
+        aug_transforms_off=True,
     )
     # initialize trainer
     pl_model = SingletaskTrainLandmarks(
