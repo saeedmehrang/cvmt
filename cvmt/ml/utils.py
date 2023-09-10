@@ -1,6 +1,7 @@
 """ A collection of data utility functions and classes plus additional functions for 
 plotting and data transformations needed during training deep learning models."""
 
+import os
 import random
 from functools import partial
 from typing import Any, Callable, Dict, List, Tuple
@@ -11,8 +12,10 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+import pandas as pd
 import torch
 import torchvision.transforms.functional as F
+from easydict import EasyDict
 from numpy import unravel_index
 from torch.utils.data import Dataset
 from torchvision.transforms import (GaussianBlur, RandomHorizontalFlip,
@@ -664,3 +667,49 @@ def plot_many_heatmaps(
     plt.show()
     plt.pause(1)
     return None
+
+
+def stratify_dataset_4(
+    metadata_table: pd.DataFrame,
+    params: EasyDict,
+) -> List[str]:
+    # read the csv table
+    path = os.path.join(
+        params.INTERMEDIATE_DATA_DIRECTORY, 
+        params.INTERM.DATASET_4.DIR_NAME,
+        params.INTERM.DATASET_4.AGE_DATA_TABLE_NAME,
+    )
+    dataset_4_age_df = pd.read_csv(
+        path,
+        delimiter=',',
+    )
+    index = np.arange(1, len(dataset_4_age_df)+1)
+    dataset_4_age_df.index = index
+    dataset_4_age_df.reset_index(inplace=True)
+    dataset_4_age_df.rename(columns={'index': 'source_image_filename'}, inplace=True)
+    dataset_4_age_df['source_image_filename'] = dataset_4_age_df['source_image_filename'] + 1 
+    dataset_4_age_df['source_image_filename'] = dataset_4_age_df['source_image_filename'].apply(lambda x: str(x).strip()+'.jpg')
+    dataset_4_age_df['dataset'] = "dataset_4"
+    # binning
+    dataset_4_age_df['bin'] = pd.cut(
+        dataset_4_age_df['year'],
+        bins=[0, 6, 10, 14, 18, np.inf],
+        labels=["age_10", "age_12", "age_14", "age_16", "age_18"]
+    )
+    # string concatenation
+    dataset_4_age_df['grouping_factor'] = dataset_4_age_df.apply(lambda x: x['dataset']+'_'+x['bin'], axis=1)
+    dataset_4_age_df = dataset_4_age_df.loc[:,['grouping_factor', 'source_image_filename', 'dataset', 'year']]
+    dataset_4_age_df.rename({'year': 'age'}, axis=1, inplace=True)
+    # merging the grouping factors of different datasets
+    merged = metadata_table.merge(
+        dataset_4_age_df,
+        on=['source_image_filename', 'dataset'],
+        how='left',
+    )
+    # replace the nan values from the original metadata grouping factor and keep the ones
+    # we created for dataset-4 after string concatenation
+    grouping_factor = merged['grouping_factor_y'].fillna(merged['grouping_factor_x']).to_numpy().ravel()
+    merged['grouping_factor'] = grouping_factor
+    # Drop the extra columns
+    merged.drop(['grouping_factor_x', 'grouping_factor_y'], axis=1, inplace=True)
+    return merged

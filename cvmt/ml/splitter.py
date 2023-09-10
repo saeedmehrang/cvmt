@@ -1,6 +1,6 @@
 """ Train-val-test splitting functionality."""
 
-from .utils import split_filenames
+from .utils import split_filenames, stratify_dataset_4
 import numpy as np
 import pandas as pd
 import os
@@ -16,24 +16,35 @@ def train_test_split(params: EasyDict) -> None:
     )
     # read the table into a pandas DataFrame
     metadata_table = store.select('df')
+    # add a grouping factor to the metadata table
+    metadata_table['grouping_factor'] = metadata_table['dataset']
+    # stratify dataset 4 as it has age variable available
+    if "dataset_4" in params.TRAIN.DATASETS_TO_INCLUDE:
+        metadata_table = stratify_dataset_4(
+            metadata_table=metadata_table,
+            params=params,
+        )
     # discard the samples that come with invalid or malformed data structure or
-    # annotations as denoted by the column `valid` in the metadata table.
+    # annotations as denoted by the column `valid_v_annots` in the metadata table.
     # for more information see the function `cvmt.data.prep.prep_all_datasets`.
     selected_samples = metadata_table.loc[
         (metadata_table['dataset'].isin(params.TRAIN.DATASETS_TO_INCLUDE)) & (
             metadata_table['valid_v_annots'] == True
         ),
-        ['harmonized_id', 'dataset']
+        ['harmonized_id', 'grouping_factor',]
     ]
+    # get the required inputs for the splitting function
+    grouping_factor = selected_samples['grouping_factor'].tolist()
+    filenames = selected_samples['harmonized_id'].tolist()
     # apply the splitting functionality to the filenames based on the grouping
     # defined by the dataset value
     train_files, val_files, test_files = split_filenames(    
-        filenames=selected_samples['harmonized_id'].tolist(), 
+        filenames=filenames, 
         train_ratio=0.6,
         val_ratio=0.2,
         test_ratio=0.2,
         seed=100,
-        grouping_factor=selected_samples['dataset'].tolist(),
+        grouping_factor=grouping_factor,
     )
     # find the training indices
     indices_train = np.where(
