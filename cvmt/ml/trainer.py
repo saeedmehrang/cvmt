@@ -15,8 +15,10 @@ from torchmetrics import MeanSquaredError
 from torchvision import transforms
 
 from .models import MultiTaskLandmarkUNetCustom
-from .utils import (Coord2HeatmapTransform, CustomToTensor,
-                    HDF5MultitaskDataset, MultitaskCollator, ResizeTransform)
+from .utils import (Coord2HeatmapTransform, CustomScaleto01, CustomToTensor,
+                    HDF5MultitaskDataset, MultitaskCollator, RandomHorFlip,
+                    RandomRotationTransform, ResizeTransform, GaussianBlurTransform,
+                    RightResizedCrop,)
 
 
 class MultitaskTrainOnlyLandmarks(pl.LightningModule):
@@ -159,6 +161,7 @@ def create_dataloader(
     split: str,
     batch_size: int,
     shuffle: bool,
+    transforms_off: bool=False,
 ) -> torch.utils.data.DataLoader:
     # load metadata
     metadata_table = pd.read_hdf(
@@ -173,16 +176,23 @@ def create_dataloader(
         os.path.join(params.PRIMARY_DATA_DIRECTORY, file_path+'.hdf5') for file_path in train_file_list
     ]
     # instantiate the transforms
-    my_transforms = transforms.Compose([
-        ResizeTransform(tuple(params.TRAIN.TARGET_IMAGE_SIZE)),
-        Coord2HeatmapTransform(
-            tuple(params.TRAIN.TARGET_IMAGE_SIZE),
-            params.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
-        ),
-        CustomToTensor(),
-    ])
+    my_transforms = None
+    if not transforms_off:
+        my_transforms = transforms.Compose([
+            ResizeTransform(tuple(params.TRAIN.TARGET_IMAGE_SIZE)),
+            Coord2HeatmapTransform(
+                tuple(params.TRAIN.TARGET_IMAGE_SIZE),
+                params.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
+            ),
+            CustomScaleto01(),
+            CustomToTensor(),
+            # RandomRotationTransform(degrees=(5,10)),
+            RandomHorFlip(0.25),
+            GaussianBlurTransform(kernel_size=3, sigma=0.2, p=0.2),
+            RightResizedCrop(width_scale=(0.8,1.0,), p=0.5)
+        ])
     # instantiate the dataset and dataloader objects
-    train_dataset = HDF5MultitaskDataset(
+    dataset = HDF5MultitaskDataset(
         file_paths=train_file_list,
         task_id=task_id,
         transforms=my_transforms,
@@ -191,7 +201,7 @@ def create_dataloader(
         task_id=task_id,
     )
     dataloader = DataLoader(
-        train_dataset,
+        dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         collate_fn=collator_task,
@@ -266,6 +276,7 @@ def trainer_v_landmarks_single_task(params: EasyDict):
         split='val',
         shuffle=shuffle,
         params=params,
+        transforms_off=True,
     )
     # initialize trainer
     pl_model = SingletaskTrainLandmarks(
