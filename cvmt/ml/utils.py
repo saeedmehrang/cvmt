@@ -2,8 +2,7 @@
 plotting and data transformations needed during training deep learning models."""
 
 import random
-# from collections import OrderedDict
-# from copy import deepcopy
+from functools import partial
 from typing import Any, Callable, Dict, List, Tuple
 
 import cv2
@@ -13,10 +12,11 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import torch
+import torchvision.transforms.functional as F
 from numpy import unravel_index
-# from pytorch_lightning.loggers import TensorBoardLogger
-# from segmentation_models_pytorch.base.modules import Activation
 from torch.utils.data import Dataset
+from torchvision.transforms import (GaussianBlur, RandomHorizontalFlip,
+                                    RandomRotation)
 
 
 class HDF5MultitaskDataset(Dataset):
@@ -313,24 +313,24 @@ class ResizeTransform(object):
         resized_image = cv2.resize(image, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
         resized_image = resized_image.astype(np.float16)
         # create the new output dict
-        resized_sample = {'image': resized_image,}
+        sample['image'] = resized_image
         # h and w are swapped for landmarks because for images,
         # x and y axes are axis 1 and 0 respectively
         if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
             v_landmarks = sample['v_landmarks']
             v_landmarks = v_landmarks * [new_w / w, new_h / h]
-            resized_sample['v_landmarks'] = v_landmarks
+            sample['v_landmarks'] = v_landmarks
         if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
             f_landmarks = sample['f_landmarks']
             f_landmarks = f_landmarks * [new_w / w, new_h / h]
-            resized_sample['f_landmarks'] = f_landmarks
+            sample['f_landmarks'] = f_landmarks
         if 'edges' in sample and sample['edges'] is not None:
             edges = sample['edges']
             edges = edges.astype(np.float32)
             resized_edges = cv2.resize(edges, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
             resized_edges = resized_edges.astype(np.float16)
-            resized_sample['edges'] = resized_edges
-        return resized_sample
+            sample['edges'] = resized_edges
+        return sample
 
 
 class Coord2HeatmapTransform(object):
@@ -352,31 +352,20 @@ class Coord2HeatmapTransform(object):
         self.gauss_std = gauss_std
 
     def __call__(self, sample):
-        # unpack the image
-        image = sample['image']
-        # create the output dict
-        transformed_data = {'image': image,}
         # transform coordinates to heatmaps
         if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
-            v_landmarks = sample['v_landmarks']
-            v_landmarks = self.coord2heatmap(
-                landmarks=v_landmarks,
+            sample['v_landmarks'] = self.coord2heatmap(
+                landmarks=sample['v_landmarks'],
                 output_size=self.output_size,
                 std=self.gauss_std,
             )
-            transformed_data['v_landmarks'] = v_landmarks
         if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
-            f_landmarks = sample['f_landmarks']
-            f_landmarks = self.coord2heatmap(
-                landmarks=f_landmarks,
+            sample['f_landmarks'] = self.coord2heatmap(
+                landmarks=sample['f_landmarks'],
                 output_size=self.output_size,
                 std=self.gauss_std,
             )
-            transformed_data['f_landmarks'] = f_landmarks
-        if 'edges' in sample and sample['edges'] is not None:
-            edges = sample['edges']
-            transformed_data['edges'] = edges
-        return transformed_data
+        return sample
 
     @staticmethod
     def coord2heatmap(
@@ -432,15 +421,13 @@ class CustomToTensor(object):
         # numpy image: H x W x C
         # torch image: C x H x W
         image = image.transpose((2, 0, 1))
-        # create the output dict
-        transformed_data = {'image': torch.from_numpy(image),}
+        # fill in the dict with the transformed data
+        sample['image'] = torch.from_numpy(image)
         # transform coordinates to heatmaps
         if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
-            v_landmarks = sample['v_landmarks']
-            transformed_data['v_landmarks'] = torch.from_numpy(v_landmarks)
+            sample['v_landmarks'] = torch.from_numpy(sample['v_landmarks']).to(torch.float16)
         if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
-            f_landmarks = sample['f_landmarks']
-            transformed_data['f_landmarks'] = torch.from_numpy(f_landmarks)
+            sample['f_landmarks'] = torch.from_numpy(sample['f_landmarks']).to(torch.float16)
         if 'edges' in sample and sample['edges'] is not None:
             edges = sample['edges']
             edges = self.convert_to_bw(edges)
@@ -448,8 +435,8 @@ class CustomToTensor(object):
             # numpy image: H x W x C
             # torch image: C x H x W
             edges = edges.transpose((2, 0, 1))
-            transformed_data['edges'] = torch.from_numpy(edges)
-        return transformed_data
+            sample['edges'] = torch.from_numpy(edges).to(torch.float16)
+        return sample
     
     @staticmethod
     def convert_to_bw(
@@ -483,6 +470,111 @@ class CustomToTensor(object):
         else:
             raise ValueError("Invalid image shape")
             return None
+
+
+
+class CustomScaleto01(object):
+    """ Scale the tensor to a 0-1 range."""
+
+    def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        image = sample['image']
+        scaled = (image - np.min(image))/np.ptp(image)
+        sample['image'] = scaled
+        return sample
+
+
+class RandomHorFlip(object):
+    """Random Horizontal Flip on both image and landmark heatmaps."""
+    def __init__(self, p=0.5):
+        self.transform = RandomHorizontalFlip(p)
+
+    def __call__(self, sample):
+        # Apply the transform to the image and other inputs
+        sample['image'] = self.transform(sample['image'])
+        # additional inputs
+        if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
+            sample['v_landmarks'] = self.transform(sample['v_landmarks'])
+        if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
+            sample['f_landmarks'] = self.transform(sample['f_landmarks'])
+        if 'edges' in sample and sample['edges'] is not None:
+            sample['edges'] = self.transform(sample['edges'])
+        return sample
+
+
+class RandomRotationTransform(object):
+    """Randomly rotate the image and landmark heatmaps."""
+    def __init__(self, degrees, p=0.5):
+        self.transform = RandomRotation(degrees)
+        self.p = p
+
+    def __call__(self, sample):
+        if np.random.random() < self.p:
+            # Apply the transform to the image and other inputs
+            sample['image'] = self.transform(sample['image'])
+            # additional inputs
+            if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
+                sample['v_landmarks'] = self.transform(sample['v_landmarks'])
+            if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
+                sample['f_landmarks'] = self.transform(sample['f_landmarks'])
+            if 'edges' in sample and sample['edges'] is not None:
+                sample['edges'] = self.transform(sample['edges'])
+        return sample
+
+
+class GaussianBlurTransform(object):
+    """Apply Gaussian blur on both image and landmark heatmaps."""
+    def __init__(self, kernel_size, sigma=(0.1, 2.0), p=0.5):
+        self.transform = GaussianBlur(kernel_size, sigma)
+        self.p = p
+
+    def __call__(self, sample):
+        if np.random.random() < self.p:
+            # Apply the transform to the image and other inputs
+            sample['image'] = self.transform(sample['image'].to(torch.float32)).to(torch.float16)
+        return sample
+
+
+class RightResizedCrop(object):
+    """Randomly crop the right side of the image and resize to the original size of the input image.
+
+    Args:
+        width_scale (float): Desired scale of horizontal cropping.
+        p: (float) the probability of applying the transform
+    """
+
+    def __init__(self, width_scale: Tuple[float]=(0.8,1.0,), p: float=0.2):
+        assert isinstance(width_scale, (tuple))
+        width_scale = np.random.uniform(width_scale[0], width_scale[1])
+        self.width_scale = width_scale
+        self.p = p
+
+    def __call__(self, sample):
+        
+        if np.random.normal() < self.p:
+            image = sample['image']
+            h, w = image.shape[-2:]
+            # crop from teh right side only
+            cbox_top = 0
+            cbox_left = 0
+            cbox_height = h
+            cbox_width = int(self.width_scale * w)
+            antialias = True
+            size = (h, w,)
+            transform_func = partial(F.resized_crop,
+                top=cbox_top, left=cbox_left,
+                height=cbox_height, width=cbox_width,
+                antialias=antialias, size=size
+            )
+            # crop and resize the image
+            sample['image'] = transform_func(image,)
+            # the rest of the input data including the landmarks and edges must be transformed, too
+            if 'v_landmarks' in sample and sample['v_landmarks'] is not None:                
+                sample['v_landmarks'] = transform_func(sample['v_landmarks'],)
+            if 'f_landmarks' in sample and sample['f_landmarks'] is not None:                
+                sample['f_landmarks'] = transform_func(sample['f_landmarks'],)
+            if 'edges' in sample and sample['edges'] is not None:            
+                sample['edges'] = transform_func(sample['edges'],)
+        return sample
 
 
 def plot_image_landmarks(
