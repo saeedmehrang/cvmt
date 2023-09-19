@@ -477,11 +477,11 @@ class CustomToTensor(object):
 
 
 class CustomScaleto01(object):
-    """ Scale the tensor to a 0-1 range."""
+    """ Scale the tensor to a 0-1 range using Torch."""
 
     def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         image = sample['image']
-        scaled = (image - np.min(image))/np.ptp(image)
+        scaled = scale_to_01_torch(image)
         sample['image'] = scaled
         return sample
 
@@ -545,9 +545,10 @@ class RightResizedCrop(object):
         p: (float) the probability of applying the transform
     """
 
-    def __init__(self, width_scale: Tuple[float]=(0.8,1.0,), p: float=0.2):
-        assert isinstance(width_scale, (tuple))
-        width_scale = np.random.uniform(width_scale[0], width_scale[1])
+    def __init__(self, width_scale_low: float=0.8, width_scale_high: float=1.0, p: float=0.2):
+        assert width_scale_low <= width_scale_high, "The lower limit must be less than or equal to the upper limit"
+        assert width_scale_low > 0.0, "The lower limit must be greater than zero!"
+        width_scale = np.random.uniform(width_scale_low, width_scale_high)
         self.width_scale = width_scale
         self.p = p
 
@@ -713,3 +714,29 @@ def stratify_dataset_4(
     # Drop the extra columns
     merged.drop(['grouping_factor_x', 'grouping_factor_y'], axis=1, inplace=True)
     return merged
+
+
+class RandomBrightness(object):
+    def __init__(self, low:float, high:float, p:float=0.3):
+        assert low <= high, "The lower limit must be less than or equal to the upper limit"
+        assert low >= 0, "Brightness factor should be non-negative"
+        self.low = low
+        self.high = high
+        self.p = p
+
+    def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        brightness_factor = random.uniform(self.low, self.high)
+        if np.random.normal() < self.p:
+            image = sample['image']
+            image = image.to(dtype=torch.float32)
+            # crop and resize the image
+            image = F.adjust_brightness(image, brightness_factor)
+            image = scale_to_01_torch(image)
+            image = image.to(dtype=torch.float16)
+            sample['image'] = image
+        return sample
+
+
+def scale_to_01_torch(x: torch.Tensor) -> torch.Tensor:
+    x_scaled = (x - x.min()) / (x.max() - x.min())
+    return x_scaled

@@ -1,5 +1,4 @@
-import numpy as np
-import random
+import pytorch_lightning as pl
 
-np.random.seed(100)
-random.seed(100)
+
+pl.seed_everything(100, workers=True)

@@ -18,7 +18,7 @@ from .models import MultiTaskLandmarkUNetCustom
 from .utils import (Coord2HeatmapTransform, CustomScaleto01, CustomToTensor,
                     HDF5MultitaskDataset, MultitaskCollator, RandomHorFlip,
                     RandomRotationTransform, ResizeTransform, GaussianBlurTransform,
-                    RightResizedCrop,)
+                    RightResizedCrop, RandomBrightness)
 
 
 class MultitaskTrainOnlyLandmarks(pl.LightningModule):
@@ -183,12 +183,13 @@ def create_dataloader(
                 tuple(params.TRAIN.TARGET_IMAGE_SIZE),
                 params.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
             ),
-            CustomScaleto01(),
             CustomToTensor(),
+            CustomScaleto01(),
             # RandomRotationTransform(degrees=(5,10)),
             RandomHorFlip(0.25),
             GaussianBlurTransform(kernel_size=3, sigma=0.2, p=0.2),
-            RightResizedCrop(width_scale=(0.8,1.0,), p=0.5)
+            RightResizedCrop(width_scale_low=0.8, width_scale_high=1.0, p=0.5),
+            RandomBrightness(low=0.8, high=1.5, p=0.2),
         ])
     else:
         my_transforms = transforms.Compose([
@@ -197,8 +198,8 @@ def create_dataloader(
                 tuple(params.TRAIN.TARGET_IMAGE_SIZE),
                 params.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
             ),
-            CustomScaleto01(),
             CustomToTensor(),
+            CustomScaleto01(),
         ])
     # instantiate the dataset and dataloader objects
     dataset = HDF5MultitaskDataset(
