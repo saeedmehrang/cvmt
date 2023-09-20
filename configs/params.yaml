@@ -22,25 +22,25 @@ INTERM:
   N_PROCESSES: 3
 
   DATASET_1:
-    DIR_NAME: "dataset_1_interm_data-20230513T084705Z-001"
+    DIR_NAME: "dataset_1-20230919T192724Z-001"
     IMG_DIR_NAME: ["image"]
     V_LANDMARKS_DIR_NAME: ["label"]
     F_LANDMARKS_DIR_NAME: null
 
   DATASET_2:
-    DIR_NAME: "dataset_2_interm_data-20230304T160421Z-001"
+    DIR_NAME: "dataset_2-20230919T192724Z-001"
     IMG_DIR_NAME: ["image"]
     V_LANDMARKS_DIR_NAME: ["label"]
     F_LANDMARKS_DIR_NAME: null
 
   DATASET_3:
-    DIR_NAME: "dataset_3_interm_data-20230304T160433Z-001"
+    DIR_NAME: "dataset_3-20230919T192724Z-001"
     IMG_DIR_NAME: ["training/image", "test1/image", "test2/image"]
     V_LANDMARKS_DIR_NAME: ["training/label", "test1/label", "test2/label"] 
     F_LANDMARKS_DIR_NAME: "AnnotationsByMD/400_senior"
 
   DATASET_4:
-    DIR_NAME: "dataset_4_interm_data-20230827T110521Z-001"
+    DIR_NAME: "dataset_4-20230919T192724Z-001"
     IMG_DIR_NAME: ["image"]
     V_LANDMARKS_DIR_NAME: ["label"]
     F_LANDMARKS_DIR_NAME: null

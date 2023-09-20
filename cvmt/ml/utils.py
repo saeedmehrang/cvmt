@@ -682,7 +682,7 @@ def stratify_dataset_4(
     )
     dataset_4_age_df = pd.read_csv(
         path,
-        delimiter=',',
+        delimiter=';',
     )
     index = np.arange(1, len(dataset_4_age_df)+1)
     dataset_4_age_df.index = index
