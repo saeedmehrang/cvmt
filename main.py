@@ -1,10 +1,14 @@
 """ The main function that is the interface to the package cvmt """
+import pytorch_lightning as pl
+
+pl.seed_everything(100, workers=True)
+
 import os
 import sys
 
-import wandb
 from easydict import EasyDict
 
+import wandb
 from cvmt.data import prep_all_datasets
 from cvmt.ml import train_test_split, trainer_v_landmarks_single_task
 from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
