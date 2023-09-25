@@ -215,7 +215,7 @@ def create_dataloader(
         batch_size=batch_size,
         shuffle=shuffle,
         collate_fn=collator_task,
-        num_workers=1,
+        num_workers=params.TRAIN.N_WORKERS,
     )
     return dataloader
 
@@ -267,6 +267,8 @@ def trainer_v_landmarks_single_task(params: EasyDict):
     task_id = task_config.TASK_ID
     batch_size = task_config.BATCH_SIZE
     shuffle = task_config.SHUFFLE
+    devices = params.TRAIN.DEVICES
+    accelerator = params.TRAIN.ACCELERATOR
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -308,6 +310,8 @@ def trainer_v_landmarks_single_task(params: EasyDict):
         logger=wandb_logger,
         callbacks=[checkpoint_callback],
         log_every_n_steps=5,
+        accelerator=accelerator,
+        devices=devices,
     )
     # run the training
     trainer.fit(
@@ -326,12 +330,13 @@ class MeanSquaredError_(MeanSquaredError):
 
 def mean_radial_error(preds:torch.Tensor, targets: torch.Tensor,) -> int:
     def max_indices_4d_tensor(inp_tensor: torch.Tensor):
-        inp_tensor = inp_tensor.numpy()
-        bi, chi, h, w = inp_tensor.shape
+        inp_tensor_cpu = inp_tensor.detach().cpu()  
+        inp_tensor_cpu = inp_tensor_cpu.numpy()
+        bi, chi, h, w = inp_tensor_cpu.shape
         indices = np.zeros((bi, chi, 2))
         for b in range(bi):
             for c in range(chi):
-                heatmap = inp_tensor[b, c, :, :]
+                heatmap = inp_tensor_cpu[b, c, :, :]
                 max_inds = np.unravel_index(heatmap.argmax(), heatmap.shape)
                 indices[b,c,:] = np.array(max_inds)
         return indices
