@@ -19,7 +19,7 @@ RAW:
 # intermediate stage data config
 INTERM:
   UNWANTED_JSON_FIELDS: ['imageData', 'imagePath']
-  N_PROCESSES: 3
+  N_PROCESSES: 16
 
   DATASET_1:
     DIR_NAME: "dataset_1-20230919T192724Z-001"
@@ -76,7 +76,10 @@ TRAIN:
     TASK_ID: 3
     BATCH_SIZE: 16
     SHUFFLE: False
-  MAX_EPOCHS: 6
+  MAX_EPOCHS: 10
+  N_WORKERS: 16
+  DEVICES: 1 # 2 for 2 GPUs, or 0 for CPU
+  ACCELERATOR: "gpu"
 
 MODEL:
   DEVICE: "cuda"
