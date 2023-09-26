@@ -2,6 +2,7 @@ name: cephal
 channels:
   - pytorch
   - nvidia
+  - conda-forge
   - defaults
 dependencies:
   - _libgcc_mutex=0.1
@@ -9,7 +10,7 @@ dependencies:
   - blas=1.0
   - brotlipy=0.7.0
   - bzip2=1.0.8
-  - ca-certificates=2023.08.22
+  - ca-certificates=2023.7.22
   - certifi=2023.7.22
   - cffi=1.15.1
   - charset-normalizer=2.0.4
@@ -42,6 +43,7 @@ dependencies:
   - libcusolver=11.4.1.48
   - libcusparse=11.7.5.86
   - libdeflate=1.17
+  - libevent=2.1.12
   - libffi=3.4.4
   - libgcc-ng=11.2.0
   - libgomp=11.2.0
@@ -69,6 +71,7 @@ dependencies:
   - ncurses=6.4
   - nettle=3.7.3
   - networkx=3.1
+  - numpy-base=1.25.2
   - openh264=2.1.1
   - openssl=3.0.11
   - pip=23.2.1
@@ -86,6 +89,7 @@ dependencies:
   - sympy=1.11.1
   - tbb=2021.8.0
   - tk=8.6.12
+  - tmux=3.3a
   - torchtriton=2.0.0
   - torchvision=0.15.0
   - typing_extensions=4.7.1
