@@ -314,7 +314,6 @@ class ResizeTransform(object):
         # resize the image
         image = image.astype(np.float32)
         resized_image = cv2.resize(image, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
-        resized_image = resized_image.astype(np.float16)
         # create the new output dict
         sample['image'] = resized_image
         # h and w are swapped for landmarks because for images,
@@ -331,7 +330,6 @@ class ResizeTransform(object):
             edges = sample['edges']
             edges = edges.astype(np.float32)
             resized_edges = cv2.resize(edges, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
-            resized_edges = resized_edges.astype(np.float16)
             sample['edges'] = resized_edges
         return sample
 
@@ -425,12 +423,13 @@ class CustomToTensor(object):
         # torch image: C x H x W
         image = image.transpose((2, 0, 1))
         # fill in the dict with the transformed data
-        sample['image'] = torch.from_numpy(image)
+        image = torch.from_numpy(image).to(torch.float32)
+        sample['image'] = image
         # transform coordinates to heatmaps
         if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
-            sample['v_landmarks'] = torch.from_numpy(sample['v_landmarks']).to(torch.float16)
+            sample['v_landmarks'] = torch.from_numpy(sample['v_landmarks']).to(torch.float32)
         if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
-            sample['f_landmarks'] = torch.from_numpy(sample['f_landmarks']).to(torch.float16)
+            sample['f_landmarks'] = torch.from_numpy(sample['f_landmarks']).to(torch.float32)
         if 'edges' in sample and sample['edges'] is not None:
             edges = sample['edges']
             edges = self.convert_to_bw(edges)
@@ -438,7 +437,7 @@ class CustomToTensor(object):
             # numpy image: H x W x C
             # torch image: C x H x W
             edges = edges.transpose((2, 0, 1))
-            sample['edges'] = torch.from_numpy(edges).to(torch.float16)
+            sample['edges'] = torch.from_numpy(edges).to(torch.float32)
         return sample
     
     @staticmethod
@@ -533,7 +532,7 @@ class GaussianBlurTransform(object):
     def __call__(self, sample):
         if np.random.random() < self.p:
             # Apply the transform to the image and other inputs
-            sample['image'] = self.transform(sample['image'].to(torch.float32)).to(torch.float16)
+            sample['image'] = self.transform(sample['image'])
         return sample
 
 
@@ -728,11 +727,9 @@ class RandomBrightness(object):
         brightness_factor = random.uniform(self.low, self.high)
         if np.random.normal() < self.p:
             image = sample['image']
-            image = image.to(dtype=torch.float32)
             # crop and resize the image
             image = F.adjust_brightness(image, brightness_factor)
             image = scale_to_01_torch(image)
-            image = image.to(dtype=torch.float16)
             sample['image'] = image
         return sample
 
