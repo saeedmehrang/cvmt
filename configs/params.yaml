@@ -74,10 +74,10 @@ TRAIN:
     TASK_ID: 3
     BATCH_SIZE: 16
     SHUFFLE: False
-  MAX_EPOCHS: 10
-  N_WORKERS: 16
-  DEVICES: 1 # 2 for 2 GPUs, or 0 for CPU
-  ACCELERATOR: "gpu"
+  MAX_EPOCHS: 2
+  N_WORKERS_DATA_LOADER: 4
+  DEVICES: 1 # m for m GPUs, or 1 for CPU
+  ACCELERATOR: "cpu"
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
     TRAIN:
       RESIZE:
