@@ -194,7 +194,7 @@ def create_dataloader(
         batch_size=batch_size,
         shuffle=shuffle,
         collate_fn=collator_task,
-        num_workers=params.TRAIN.N_WORKERS,
+        num_workers=params.TRAIN.N_WORKERS_DATA_LOADER,
     )
     return dataloader
 
