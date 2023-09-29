@@ -276,11 +276,13 @@ def trainer_v_landmarks_single_task(params: EasyDict):
         log_model='all',
         save_dir=params.WANDB.CHECKPOINTING.dir,
     )
+    run_name = wandb_logger.experiment.name
     checkpoint_callback = ModelCheckpoint(
         monitor='val_mre', 
         mode='min',
         dirpath=params.WANDB.CHECKPOINTING.dir,
         save_top_k=1,
+        filename=f'{run_name}-{{epoch}}-{{step}}-{{val_loss:.3f}}-{{val_mre:.1f}}',
     )
     trainer = pl.Trainer(
         default_root_dir=params.WANDB.CHECKPOINTING.dir, 
