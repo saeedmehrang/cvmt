@@ -63,8 +63,6 @@ ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"
 TRAIN:
   METADATA_TABLE_NAME: 'metadata.hdf5'
   DATASETS_TO_INCLUDE: ['dataset_1', 'dataset_2', 'dataset_3', 'dataset_4']
-  TARGET_IMAGE_SIZE: [256, 256] # H, W - change this when enough RAM is available
-  GAUSSIAN_COORD2HEATMAP_STD: 3
   MULTIPLE_TASKS:
     - TASK_ID: 3
       BATCH_SIZE: 16
@@ -80,6 +78,42 @@ TRAIN:
   N_WORKERS: 16
   DEVICES: 1 # 2 for 2 GPUs, or 0 for CPU
   ACCELERATOR: "gpu"
+  TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
+    TRAIN:
+      RESIZE:
+        output_size: [256, 256] # H, W - change this when enough RAM is available
+      COORD2HEATMAP:
+        gauss_std: 3
+      TOTENSOR:
+        {} # put empty curly braces (dict) if there is no parameter
+      SCALE01:
+        {}
+      RANDOMROTATION: 
+        degrees: [5, 10] # The min and max number of degrees to rotate in between
+        p: 0.5 # p means probability here and in the rest of transforms
+      RANDOMFLIP: 
+        p: 0.5
+      GAUSSIANBLUR: 
+        kernel_size: 3
+        sigma: 0.2
+        p: 0.1
+      RIGHTRESIZECROP: 
+        width_scale_low: 0.6
+        width_scale_high: 1.0
+        p: 0.5
+      RANDOMBRIGHTNESS: 
+        low: 0.8
+        high: 1.5
+        p: 0.2
+    VAL:
+      RESIZE:
+        output_size: [256, 256] # H, W - change this when enough RAM is available
+      COORD2HEATMAP:
+        gauss_std: 3
+      TOTENSOR:
+        {} # put empty curly braces (dict) if there is no parameter
+      SCALE01:
+        {}
 
 MODEL:
   DEVICE: "cuda"
