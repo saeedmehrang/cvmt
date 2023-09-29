@@ -15,10 +15,8 @@ from torchmetrics import MeanSquaredError
 from torchvision import transforms
 
 from .models import MultiTaskLandmarkUNetCustom
-from .utils import (Coord2HeatmapTransform, CustomScaleto01, CustomToTensor,
-                    HDF5MultitaskDataset, MultitaskCollator, RandomHorFlip,
-                    RandomRotationTransform, ResizeTransform, GaussianBlurTransform,
-                    RightResizedCrop, RandomBrightness)
+from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping)
+from collections import OrderedDict
 
 
 class MultitaskTrainOnlyLandmarks(pl.LightningModule):
@@ -161,7 +159,6 @@ def create_dataloader(
     split: str,
     batch_size: int,
     shuffle: bool,
-    aug_transforms_off: bool=False,
 ) -> torch.utils.data.DataLoader:
     # load metadata
     metadata_table = pd.read_hdf(
@@ -176,31 +173,13 @@ def create_dataloader(
         os.path.join(params.PRIMARY_DATA_DIRECTORY, file_path+'.hdf5') for file_path in train_file_list
     ]
     # instantiate the transforms
-    if not aug_transforms_off:
-        my_transforms = transforms.Compose([
-            ResizeTransform(tuple(params.TRAIN.TARGET_IMAGE_SIZE)),
-            Coord2HeatmapTransform(
-                tuple(params.TRAIN.TARGET_IMAGE_SIZE),
-                params.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
-            ),
-            CustomToTensor(),
-            CustomScaleto01(),
-            # RandomRotationTransform(degrees=(5,10)),
-            RandomHorFlip(0.25),
-            GaussianBlurTransform(kernel_size=3, sigma=0.2, p=0.2),
-            RightResizedCrop(width_scale_low=0.8, width_scale_high=1.0, p=0.5),
-            RandomBrightness(low=0.8, high=1.5, p=0.2),
-        ])
-    else:
-        my_transforms = transforms.Compose([
-            ResizeTransform(tuple(params.TRAIN.TARGET_IMAGE_SIZE)),
-            Coord2HeatmapTransform(
-                tuple(params.TRAIN.TARGET_IMAGE_SIZE),
-                params.TRAIN.GAUSSIAN_COORD2HEATMAP_STD,
-            ),
-            CustomToTensor(),
-            CustomScaleto01(),
-        ])
+    transforms_mapping = TransformsMapping()
+    if split == "train":
+        transforms_config = OrderedDict(params.TRAIN.TRANSFORMS.TRAIN)
+    elif split == "val":
+        transforms_config = OrderedDict(params.TRAIN.TRANSFORMS.VAL)
+    my_transforms = [transforms_mapping.get(t_name, **t_args) for t_name, t_args in transforms_config.items()]
+    my_transforms = transforms.Compose(my_transforms)
     # instantiate the dataset and dataloader objects
     dataset = HDF5MultitaskDataset(
         file_paths=train_file_list,
@@ -288,7 +267,6 @@ def trainer_v_landmarks_single_task(params: EasyDict):
         split='val',
         shuffle=shuffle,
         params=params,
-        aug_transforms_off=True,
     )
     # initialize trainer
     pl_model = SingletaskTrainLandmarks(

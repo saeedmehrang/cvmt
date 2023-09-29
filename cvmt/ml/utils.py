@@ -301,7 +301,12 @@ class ResizeTransform(object):
     """
 
     def __init__(self, output_size):
-        assert isinstance(output_size, (tuple))
+        if isinstance(output_size, (list, )):
+            output_size = tuple(output_size)
+        elif isinstance(output_size, (tuple, )):
+            pass
+        else:
+            raise ValueError("output_size must be either a Tuple or a List.")
         self.output_size = output_size
 
     def __call__(self, sample):
@@ -340,30 +345,26 @@ class Coord2HeatmapTransform(object):
     a Gaussian filter.
 
     Args:
-        output_size (tuple or int): Desired output size. If tuple, output is
-            matched to output_size. If int, smaller of image edges is matched
-            to output_size keeping aspect ratio the same.
         gauss_std: standard deviation of the Gaussian kernel convolved with
             the landmark heatmap.
     """
 
-    def __init__(self, output_size: Tuple[int], gauss_std: float):
-        assert isinstance(output_size, (tuple))
-        self.output_size = output_size
+    def __init__(self, gauss_std: float):
         self.gauss_std = gauss_std
 
     def __call__(self, sample):
+        output_size = sample['image'].shape
         # transform coordinates to heatmaps
         if 'v_landmarks' in sample and sample['v_landmarks'] is not None:
             sample['v_landmarks'] = self.coord2heatmap(
                 landmarks=sample['v_landmarks'],
-                output_size=self.output_size,
+                output_size=output_size,
                 std=self.gauss_std,
             )
         if 'f_landmarks' in sample and sample['f_landmarks'] is not None:
             sample['f_landmarks'] = self.coord2heatmap(
                 landmarks=sample['f_landmarks'],
-                output_size=self.output_size,
+                output_size=output_size,
                 std=self.gauss_std,
             )
         return sample
@@ -737,3 +738,27 @@ class RandomBrightness(object):
 def scale_to_01_torch(x: torch.Tensor) -> torch.Tensor:
     x_scaled = (x - x.min()) / (x.max() - x.min())
     return x_scaled
+
+
+class TransformsMapping:
+    """A class holding the Torch vision transforms."""
+    def __init__(self,):
+        self.transforms = {
+            "RESIZE": ResizeTransform,
+            "COORD2HEATMAP": Coord2HeatmapTransform,
+            "TOTENSOR": CustomToTensor,
+            "SCALE01": CustomScaleto01,
+            "RANDOMROTATION": RandomRotationTransform,
+            "RANDOMFLIP": RandomHorFlip,
+            "GAUSSIANBLUR": GaussianBlurTransform,
+            "RIGHTRESIZECROP": RightResizedCrop,
+            "RANDOMBRIGHTNESS": RandomBrightness,
+        }
+
+    def get(self, name, *args, **kwargs):
+        transform = self.transforms.get(name,)
+        transform = transform(*args, **kwargs)
+        return transform
+
+    def set(self, name, transform):
+        self.transforms[name] = transform
