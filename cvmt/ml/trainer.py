@@ -17,6 +17,7 @@ from torchvision import transforms
 from .models import MultiTaskLandmarkUNetCustom
 from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping)
 from collections import OrderedDict
+from typing import *
 
 
 class MultitaskTrainOnlyLandmarks(pl.LightningModule):
@@ -93,7 +94,7 @@ class MultitaskTrainOnlyLandmarks(pl.LightningModule):
         self.log(f'val_mse_{task_id}', self.val_mse_task_2)
 
 
-class SingletaskTrainLandmarks(pl.LightningModule):
+class SingletaskTraining(pl.LightningModule):
     """ PL module for training a UNET model for vertebral landmark detection.
     
     See the issue below for why a pytorch lightning model cannot be loaded from checkpoint with hparams saved
@@ -101,11 +102,20 @@ class SingletaskTrainLandmarks(pl.LightningModule):
 
     https://github.com/Lightning-AI/lightning/issues/3629#issue-707536217
     """
-    def __init__(self, model, *args, **kwargs,):
-        super().__init__(*args, **kwargs,)
+    def __init__(
+            self,
+            model: nn.Module,
+            task_id: int,
+            checkpoint_path: Union[str, None] = None,
+        ):
+        super().__init__()
         # model
-        self.model = model    
-
+        self.model = model
+        # if chekpoint is supplied
+        if checkpoint_path:
+            self.model = self.load_from_checkpoint(checkpoint_path,).model
+        # input args
+        self.task_id = task_id
         self.save_hyperparameters(logger=True,)
         self.hparams.update(self.model.hparams)
 
@@ -113,22 +123,41 @@ class SingletaskTrainLandmarks(pl.LightningModule):
         self.train_mse = MeanSquaredError_(name="train_mse")
         self.val_mse = MeanSquaredError_(name="val_mse")
 
+        # set the input and outputs
+        self._setup()
+
+    def _setup(self):
+        if self.task_id == 1:
+            self.input_key_name = self.output_key_name = 'image'
+            self.loss = nn.MSELoss
+        elif self.task_id == 2:
+            self.input_key_name = 'image'
+            self.output_key_name = 'edges'
+            self.loss = nn.MSELoss
+        elif self.task_id == 3:
+            self.input_key_name = 'image'
+            self.output_key_name = 'v_landmarks'
+            self.loss = nn.CrossEntropyLoss
+        elif self.task_id == 4:
+            self.input_key_name = 'image'
+            self.output_key_name = 'f_landmarks'
+            self.loss = nn.CrossEntropyLoss
+        else:
+            raise ValueError("The inserted `task_id` is incorrect. Accepted values are int 1 to 4.")
+
     def training_step(self, batch, batch_idx):
-        #assert isinstance(batch, dict)
-        #task_ids = list(batch.keys()).sort()
-        # training for task
-        #task_id = task_ids[0]
-        task_id = 3
-        x, y = batch['image'], batch['v_landmarks']
+        x, y = batch[self.input_key_name], batch[self.output_key_name]
         y = y.to(torch.float32)
         x = x.to(torch.float32)
-        preds = self.model(x, task_id=task_id)
-        loss = nn.CrossEntropyLoss()(preds, y)
+        preds = self.model(x, task_id=self.task_id)
+        loss = self.loss()(preds, y)
         self.log(f'train_loss', loss, on_step=True, on_epoch=True, logger=True)
         self.train_mse.update(preds, y)
         self.log(f'train_mse', self.train_mse, on_step=True, on_epoch=True, logger=True)
-        train_mre = mean_radial_error(preds, y)
-        self.log("train_mre", train_mre, on_step=True, on_epoch=True, logger=True)
+        # check if task_id is either 3 or 4, then compute metric mre
+        if self.task_id in [3,4]: # either v or f landmark detection
+            train_mre = mean_radial_error(preds, y)
+            self.log("train_mre", train_mre, on_step=True, on_epoch=True, logger=True)
         return loss
 
     def configure_optimizers(self):
@@ -136,21 +165,18 @@ class SingletaskTrainLandmarks(pl.LightningModule):
         return optimizer
 
     def validation_step(self, batch, batch_idx):
-        #assert isinstance(batch, dict)
-        #task_ids = list(batch.keys()).sort()
-        # validation for task
-        #task_id = task_ids[0]
-        task_id = 3
-        x, y = batch['image'], batch['v_landmarks']
+        x, y = batch[self.input_key_name], batch[self.output_key_name]
         y = y.to(torch.float32)
         x = x.to(torch.float32)
-        preds = self.model(x, task_id=task_id)
-        loss = nn.CrossEntropyLoss()(preds, y)
+        preds = self.model(x, task_id=self.task_id)
+        loss = self.loss()(preds, y)
         self.log(f'val_loss', loss, prog_bar=True, logger=True)
         self.val_mse.update(preds, y)
         self.log(f'val_mse', self.val_mse, prog_bar=True, logger=True)
-        val_mre = mean_radial_error(preds, y)
-        self.log("val_mre", val_mre, prog_bar=True, logger=True)
+        # check if task_id is either 3 or 4, then compute metric mre
+        if self.task_id in [3,4]: # either v or f landmark detection
+            val_mre = mean_radial_error(preds, y)
+            self.log("val_mre", val_mre, prog_bar=True, logger=True)
 
 
 def create_dataloader(
@@ -166,9 +192,18 @@ def create_dataloader(
         key='df',
     )
     # create the right list of paths
-    train_file_list = metadata_table.loc[
-        (metadata_table['split']==split) & (metadata_table['valid_v_annots']==True), ['harmonized_id']
-    ].to_numpy().ravel().tolist()
+    if task_id == 3:
+        train_file_list = metadata_table.loc[
+            (metadata_table['split']==split) & (metadata_table['valid_v_annots']==True), ['harmonized_id']
+        ].to_numpy().ravel().tolist()
+    if task_id == 2:
+        train_file_list = metadata_table.loc[
+            (metadata_table['split']==split) & (metadata_table['edges_present']==True), ['harmonized_id']
+        ].to_numpy().ravel().tolist()
+    if task_id == 4:
+        train_file_list = metadata_table.loc[
+            (metadata_table['split']==split) & (metadata_table['f_annots_present']==True), ['harmonized_id']
+        ].to_numpy().ravel().tolist()
     train_file_list = [
         os.path.join(params.PRIMARY_DATA_DIRECTORY, file_path+'.hdf5') for file_path in train_file_list
     ]
@@ -240,9 +275,9 @@ def trainer_multitask_v_and_f_landmarks(params: EasyDict):
     return None
 
 
-def trainer_v_landmarks_single_task(params: EasyDict):
+def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str, None] = None):
     # get the parameters
-    task_config = params.TRAIN.SINGLE_TASK
+    task_config = params.TRAIN.V_LANDMARK_TASK
     task_id = task_config.TASK_ID
     batch_size = task_config.BATCH_SIZE
     shuffle = task_config.SHUFFLE
@@ -269,8 +304,10 @@ def trainer_v_landmarks_single_task(params: EasyDict):
         params=params,
     )
     # initialize trainer
-    pl_model = SingletaskTrainLandmarks(
+    pl_model = SingletaskTraining(
         model=model,
+        task_id=task_id,
+        checkpoint_path=checkpoint_path,
     )
     wandb_logger = WandbLogger(
         log_model='all',
@@ -283,6 +320,69 @@ def trainer_v_landmarks_single_task(params: EasyDict):
         dirpath=params.WANDB.CHECKPOINTING.dir,
         save_top_k=1,
         filename=f'{run_name}-{{epoch}}-{{step}}-{{val_loss:.3f}}-{{val_mre:.1f}}',
+    )
+    trainer = pl.Trainer(
+        default_root_dir=params.WANDB.CHECKPOINTING.dir, 
+        max_epochs=params.TRAIN.MAX_EPOCHS,
+        logger=wandb_logger,
+        callbacks=[checkpoint_callback],
+        log_every_n_steps=5,
+        accelerator=accelerator,
+        devices=devices,
+    )
+    # run the training
+    trainer.fit(
+        pl_model,
+        train_dataloaders=train_dataloader,
+        val_dataloaders=val_dataloader,
+    )
+    return None
+
+
+def trainer_edge_detection_single_task(params: EasyDict,):
+    # get the parameters
+    task_config = params.TRAIN.EDGE_DETECT_TASK
+    task_id = task_config.TASK_ID
+    batch_size = task_config.BATCH_SIZE
+    shuffle = task_config.SHUFFLE
+    devices = params.TRAIN.DEVICES
+    accelerator = params.TRAIN.ACCELERATOR
+    # initialize the model
+    model_params = params.MODEL.PARAMS
+    model = MultiTaskLandmarkUNetCustom(**model_params)
+    # initialize dataloader and trainer objects
+    # train dataloader
+    train_dataloader = create_dataloader(
+        task_id=task_id,
+        batch_size=batch_size,
+        split='train',
+        shuffle=shuffle,
+        params=params,
+    )
+    # val dataloader
+    val_dataloader = create_dataloader(
+        task_id=task_id,
+        batch_size=batch_size,
+        split='val',
+        shuffle=shuffle,
+        params=params,
+    )
+    # initialize trainer
+    pl_model = SingletaskTraining(
+        model=model,
+        task_id=task_id,
+    )
+    wandb_logger = WandbLogger(
+        log_model='all',
+        save_dir=params.WANDB.CHECKPOINTING.dir,
+    )
+    run_name = wandb_logger.experiment.name
+    checkpoint_callback = ModelCheckpoint(
+        monitor='val_mse', 
+        mode='min',
+        dirpath=params.WANDB.CHECKPOINTING.dir,
+        save_top_k=1,
+        filename=f'{run_name}-{{epoch}}-{{step}}-{{val_loss:.3f}}-{{val_mse:.1f}}',
     )
     trainer = pl.Trainer(
         default_root_dir=params.WANDB.CHECKPOINTING.dir, 

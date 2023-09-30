@@ -70,8 +70,12 @@ TRAIN:
     - TASK_ID: 4
       BATCH_SIZE: 16
       SHUFFLE: False
-  SINGLE_TASK:
+  V_LANDMARK_TASK:
     TASK_ID: 3
+    BATCH_SIZE: 16
+    SHUFFLE: False
+  EDGE_DETECT_TASK:
+    TASK_ID: 2
     BATCH_SIZE: 16
     SHUFFLE: False
   MAX_EPOCHS: 2

@@ -481,8 +481,12 @@ class CustomScaleto01(object):
 
     def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         image = sample['image']
-        scaled = scale_to_01_torch(image)
-        sample['image'] = scaled
+        scaled_image = scale_to_01_torch(image)
+        sample['image'] = scaled_image
+        if 'edges' in sample and sample['edges'] is not None:
+            edges = sample['edges']
+            scaled_edges = scale_to_01_torch(edges)
+            sample['edges'] = scaled_edges
         return sample
 
 
