@@ -6,8 +6,7 @@ pl.seed_everything(100, workers=True)
 import argparse
 import os
 import sys
-
-from easydict import EasyDict
+from typing import *
 
 import wandb
 from cvmt.data import prep_all_datasets
@@ -15,6 +14,7 @@ from cvmt.ml import (train_test_split, trainer_edge_detection_single_task,
                      trainer_v_landmarks_single_task)
 from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
                         remove_lightning_logs_dir)
+from easydict import EasyDict
 
 STEPS = ["data_prep", "train_test_split", "train"]
 TRAINING_TASKS = ["v_landmarks", "edges"]
@@ -23,13 +23,22 @@ CONFIG_PARAMS_PATH = "configs/params.yaml"
 
 def main(
     params: EasyDict,
+    step: str,
+    training_task: str,
+    checkpoint_path: Union[None, str] = None,
 ) -> None:
-    # Parse command-line arguments
-    args = parse_arguments()
-    # Get the function name from command-line arguments
-    step = args.step
-    training_task = args.training_task
-    checkpoint_path = args.checkpoint_path
+    """Main function to interact with cvmt library. 
+    
+    Args:
+        params: An EasyDict of all the parameters needed to interact with the library. See `configs/params.yaml` for more info.
+        step: An string for the name of the step to run. Options are ["data_prep", "train_test_split", "train"].
+        training_task: An string for the name of the training task to run. Options are ["v_landmarks", "edges"].
+        checkpoint_path: An string for tha path to a model checkpoint to be used as a pretrained model or continuing the training.
+
+    Returns:
+        None
+    """
+
     # setup wandb
     try:
         # make sure not to re-use an old run
@@ -83,8 +92,10 @@ def parse_arguments():
 
 if __name__ == "__main__":
     # load params
-    params: EasyDict = nested_dict_to_easydict(
+    default_params: EasyDict = nested_dict_to_easydict(
         load_yaml_params(CONFIG_PARAMS_PATH)
     )
+    # Parse command-line arguments
+    args = vars(parse_arguments())
     # run the main
-    main(params)
+    main(params=default_params, **args)
