@@ -10,7 +10,7 @@ from easydict import EasyDict
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from torchmetrics import MeanSquaredError
 from torchvision import transforms
 
@@ -185,6 +185,7 @@ def create_dataloader(
     split: str,
     batch_size: int,
     shuffle: bool,
+    sampler_n_samples: Union[int, None],
 ) -> torch.utils.data.DataLoader:
     # load metadata
     metadata_table = pd.read_hdf(
@@ -221,6 +222,13 @@ def create_dataloader(
         task_id=task_id,
         transforms=my_transforms,
     )
+    if sampler_n_samples:
+        assert isinstance(sampler_n_samples, int)
+        sampler = RandomSampler(dataset, replacement=True, num_samples=sampler_n_samples)
+        shuffle=False
+    else:
+        sampler = None
+        shuffle = shuffle
     collator_task = MultitaskCollator(
         task_id=task_id,
     )
@@ -230,6 +238,7 @@ def create_dataloader(
         shuffle=shuffle,
         collate_fn=collator_task,
         num_workers=params.TRAIN.N_WORKERS_DATA_LOADER,
+        sampler=sampler,
     )
     return dataloader
 
@@ -283,6 +292,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
     shuffle = task_config.SHUFFLE
     devices = params.TRAIN.DEVICES
     accelerator = params.TRAIN.ACCELERATOR
+    sampler_n_samples = params.TRAIN.SAMPLER_N_SAMPLES
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -294,14 +304,16 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
         split='train',
         shuffle=shuffle,
         params=params,
+        sampler_n_samples=sampler_n_samples,
     )
     # val dataloader
     val_dataloader = create_dataloader(
         task_id=task_id,
         batch_size=batch_size,
         split='val',
-        shuffle=shuffle,
+        shuffle=False,
         params=params,
+        sampler_n_samples=None,
     )
     # initialize trainer
     pl_model = SingletaskTraining(
@@ -347,6 +359,7 @@ def trainer_edge_detection_single_task(params: EasyDict,):
     shuffle = task_config.SHUFFLE
     devices = params.TRAIN.DEVICES
     accelerator = params.TRAIN.ACCELERATOR
+    sampler_n_samples = params.TRAIN.SAMPLER_N_SAMPLES
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -358,14 +371,16 @@ def trainer_edge_detection_single_task(params: EasyDict,):
         split='train',
         shuffle=shuffle,
         params=params,
+        sampler_n_samples=sampler_n_samples,
     )
     # val dataloader
     val_dataloader = create_dataloader(
         task_id=task_id,
         batch_size=batch_size,
         split='val',
-        shuffle=shuffle,
+        shuffle=False,
         params=params,
+        sampler_n_samples=None,
     )
     # initialize trainer
     pl_model = SingletaskTraining(

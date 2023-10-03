@@ -78,6 +78,7 @@ TRAIN:
     TASK_ID: 2
     BATCH_SIZE: 16
     SHUFFLE: False
+  SAMPLER_N_SAMPLES: 1024 # null or int
   MAX_EPOCHS: 2
   N_WORKERS_DATA_LOADER: 4
   DEVICES: 1 # m for m GPUs, or 1 for CPU
