@@ -24,7 +24,7 @@ CONFIG_PARAMS_PATH = "configs/params.yaml"
 def main(
     params: EasyDict,
     step: str,
-    training_task: str,
+    training_task: str = 'v_landmarks',
     checkpoint_path: Union[None, str] = None,
 ) -> None:
     """Main function to interact with cvmt library. 
@@ -85,7 +85,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Read command line arguments.')
     parser.add_argument('--step', type=str, help='pipeline step',)
     parser.add_argument('--training-task', type=str, help='training_task', default='v_landmarks')
-    parser.add_argument('--checkpoint-path', type=str, help='checkpoint_path',)
+    parser.add_argument('--checkpoint-path', type=str, help='checkpoint_path', default=None)
     args = parser.parse_args()
     return args
 
