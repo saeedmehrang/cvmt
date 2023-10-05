@@ -76,9 +76,9 @@ TRAIN:
     SHUFFLE: False
   EDGE_DETECT_TASK:
     TASK_ID: 2
-    BATCH_SIZE: 8
+    BATCH_SIZE: 16
     SHUFFLE: False
-  SAMPLER_N_SAMPLES: 2048 # null or int
+  SAMPLER_N_SAMPLES: 1024 # null or int
   MAX_EPOCHS: 100
   N_WORKERS_DATA_LOADER: 10
   LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
@@ -87,7 +87,7 @@ TRAIN:
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
     TRAIN:
       RESIZE:
-        output_size: [256, 256] # H, W - change this when enough RAM is available
+        output_size: [512, 512] # H, W - change this when enough RAM is available
       COORD2HEATMAP:
         gauss_std: 3
       TOTENSOR:
@@ -113,7 +113,7 @@ TRAIN:
       #   p: 0.2
     VAL:
       RESIZE:
-        output_size: [256, 256] # H, W - change this when enough RAM is available
+        output_size: [512, 512] # H, W - change this when enough RAM is available
       COORD2HEATMAP:
         gauss_std: 3
       TOTENSOR:
@@ -124,7 +124,7 @@ TRAIN:
 MODEL:
   DEVICE: "cuda"
   PARAMS:
-    backbone_encoder: "efficientnet-b0"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
+    backbone_encoder: "timm-efficientnet-b2"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
     backbone_weights: "imagenet"
     freeze_backbone: False
     enc_chan_multiplier: 1
