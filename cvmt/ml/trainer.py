@@ -107,8 +107,6 @@ class SingletaskTraining(pl.LightningModule):
             model: nn.Module,
             task_id: int,
             lr: float = 1e-4,
-            scheduler_step: int = 10,
-            scheduler_gamma: float = 0.9,
             loss_name: Union[str, None] = None,
             checkpoint_path: Union[str, None] = None,
         ):
@@ -130,8 +128,6 @@ class SingletaskTraining(pl.LightningModule):
         # set the input and outputs
         self.loss_name = loss_name
         self.lr = lr
-        self.scheduler_gamma = scheduler_gamma
-        self.scheduler_step = scheduler_step 
 
         self._setup()
 
@@ -183,16 +179,11 @@ class SingletaskTraining(pl.LightningModule):
 
     def configure_optimizers(self):
         # optimizer and StepLR scheduler
-        optimizer = torch.optim.Adam(
-            self.parameters(),
-            lr=self.lr,
-            betas=(0.9, 0.999)
+        optimizer = torch.optim.SGD(
+            self.parameters(), lr=self.lr, momentum=0.9
         )
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer,
-            step_size=self.scheduler_step,
-            gamma=self.scheduler_gamma
-        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer, T_0=10, T_mult=2)
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
     def validation_step(self, batch, batch_idx):
