@@ -76,13 +76,14 @@ TRAIN:
     SHUFFLE: False
   EDGE_DETECT_TASK:
     TASK_ID: 2
-    BATCH_SIZE: 16
+    BATCH_SIZE: 8
     SHUFFLE: False
-  SAMPLER_N_SAMPLES: 1024 # null or int
-  MAX_EPOCHS: 2
-  N_WORKERS_DATA_LOADER: 4
+  SAMPLER_N_SAMPLES: 2048 # null or int
+  MAX_EPOCHS: 100
+  N_WORKERS_DATA_LOADER: 10
+  LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
   DEVICES: 1 # m for m GPUs, or 1 for CPU
-  ACCELERATOR: "cpu"
+  ACCELERATOR: "gpu"
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
     TRAIN:
       RESIZE:
@@ -93,23 +94,23 @@ TRAIN:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
         {}
-      RANDOMROTATION: 
-        degrees: [5, 10] # The min and max number of degrees to rotate in between
-        p: 0.5 # p means probability here and in the rest of transforms
+      # RANDOMROTATION: 
+      #   degrees: [5, 10] # The min and max number of degrees to rotate in between
+      #   p: 0.5 # p means probability here and in the rest of transforms
       RANDOMFLIP: 
         p: 0.5
-      GAUSSIANBLUR: 
-        kernel_size: 3
-        sigma: 0.2
-        p: 0.1
-      RIGHTRESIZECROP: 
-        width_scale_low: 0.6
-        width_scale_high: 1.0
-        p: 0.5
-      RANDOMBRIGHTNESS: 
-        low: 0.8
-        high: 1.5
-        p: 0.2
+      # GAUSSIANBLUR: 
+      #   kernel_size: 3
+      #   sigma: 0.2
+      #   p: 0.1
+      # RIGHTRESIZECROP: 
+      #   width_scale_low: 0.6
+      #   width_scale_high: 1.0
+      #   p: 0.5
+      # RANDOMBRIGHTNESS: 
+      #   low: 0.8
+      #   high: 1.5
+      #   p: 0.2
     VAL:
       RESIZE:
         output_size: [256, 256] # H, W - change this when enough RAM is available
@@ -125,11 +126,11 @@ MODEL:
   PARAMS:
     backbone_encoder: "efficientnet-b0"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
     backbone_weights: "imagenet"
-    freeze_backbone: True
+    freeze_backbone: False
     enc_chan_multiplier: 1
     dec_chan_multiplier: 1
     enc_out_chans: [4, 8, 16, 32, 64]
-    dec_out_chans: [64, 32, 16, 8, 4]
+    dec_out_chans: [128, 128, 64, 64, 32]
     enc_chan_multiplier: 1
     dec_chan_multiplier: 1
     in_channels: 1
@@ -141,7 +142,7 @@ MODEL:
 WANDB:
   INIT:
     project: "cephal-landmark-detection"
-    notes: "First try!"
+    notes: "First try with correct output activation functions and unfrozen weights in the encoder!"
     tags: ["baseline", "efficientnet-b0"]
   CHECKPOINTING:
     dir: "artifacts/artifacts"

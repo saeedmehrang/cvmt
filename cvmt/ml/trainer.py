@@ -15,7 +15,7 @@ from torchmetrics import MeanSquaredError
 from torchvision import transforms
 
 from .models import MultiTaskLandmarkUNetCustom
-from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping)
+from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping, load_loss)
 from collections import OrderedDict
 from typing import *
 
@@ -106,6 +106,10 @@ class SingletaskTraining(pl.LightningModule):
             self,
             model: nn.Module,
             task_id: int,
+            lr: float = 1e-4,
+            scheduler_step: int = 10,
+            scheduler_gamma: float = 0.9,
+            loss_name: Union[str, None] = None,
             checkpoint_path: Union[str, None] = None,
         ):
         super().__init__()
@@ -124,24 +128,41 @@ class SingletaskTraining(pl.LightningModule):
         self.val_mse = MeanSquaredError_(name="val_mse")
 
         # set the input and outputs
+        self.loss_name = loss_name
+        self.lr = lr
+        self.scheduler_gamma = scheduler_gamma
+        self.scheduler_step = scheduler_step 
+
         self._setup()
 
     def _setup(self):
         if self.task_id == 1:
             self.input_key_name = self.output_key_name = 'image'
-            self.loss = nn.MSELoss
+            if self.loss_name:
+                self.loss = load_loss(self.loss_name)
+            else:
+                self.loss = nn.MSELoss
         elif self.task_id == 2:
             self.input_key_name = 'image'
             self.output_key_name = 'edges'
-            self.loss = nn.MSELoss
+            if self.loss_name:
+                self.loss = load_loss(self.loss_name)
+            else:
+                self.loss = nn.MSELoss
         elif self.task_id == 3:
             self.input_key_name = 'image'
             self.output_key_name = 'v_landmarks'
-            self.loss = nn.CrossEntropyLoss
+            if self.loss_name:
+                self.loss = load_loss(self.loss_name)
+            else:
+                self.loss = nn.CrossEntropyLoss
         elif self.task_id == 4:
             self.input_key_name = 'image'
             self.output_key_name = 'f_landmarks'
-            self.loss = nn.CrossEntropyLoss
+            if self.loss_name:
+                self.loss = load_loss(self.loss_name)
+            else:
+                self.loss = nn.CrossEntropyLoss
         else:
             raise ValueError("The inserted `task_id` is incorrect. Accepted values are int 1 to 4.")
 
@@ -150,7 +171,7 @@ class SingletaskTraining(pl.LightningModule):
         y = y.to(torch.float32)
         x = x.to(torch.float32)
         preds = self.model(x, task_id=self.task_id)
-        loss = self.loss()(preds, y)
+        loss = self.loss(preds, y)
         self.log(f'train_loss', loss, on_step=True, on_epoch=True, logger=True)
         self.train_mse.update(preds, y)
         self.log(f'train_mse', self.train_mse, on_step=True, on_epoch=True, logger=True)
@@ -161,15 +182,25 @@ class SingletaskTraining(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
-        return optimizer
+        # optimizer and StepLR scheduler
+        optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=self.lr,
+            betas=(0.9, 0.999)
+        )
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer,
+            step_size=self.scheduler_step,
+            gamma=self.scheduler_gamma
+        )
+        return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
     def validation_step(self, batch, batch_idx):
         x, y = batch[self.input_key_name], batch[self.output_key_name]
         y = y.to(torch.float32)
         x = x.to(torch.float32)
         preds = self.model(x, task_id=self.task_id)
-        loss = self.loss()(preds, y)
+        loss = self.loss(preds, y)
         self.log(f'val_loss', loss, prog_bar=True, logger=True)
         self.val_mse.update(preds, y)
         self.log(f'val_mse', self.val_mse, prog_bar=True, logger=True)
@@ -293,6 +324,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
     devices = params.TRAIN.DEVICES
     accelerator = params.TRAIN.ACCELERATOR
     sampler_n_samples = params.TRAIN.SAMPLER_N_SAMPLES
+    loss_name = params.TRAIN.LOSS_NAME
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -320,6 +352,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
         model=model,
         task_id=task_id,
         checkpoint_path=checkpoint_path,
+        loss_name=loss_name,
     )
     wandb_logger = WandbLogger(
         log_model='all',
@@ -360,6 +393,7 @@ def trainer_edge_detection_single_task(params: EasyDict,):
     devices = params.TRAIN.DEVICES
     accelerator = params.TRAIN.ACCELERATOR
     sampler_n_samples = params.TRAIN.SAMPLER_N_SAMPLES
+    loss_name = params.TRAIN.LOSS_NAME
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -386,6 +420,7 @@ def trainer_edge_detection_single_task(params: EasyDict,):
     pl_model = SingletaskTraining(
         model=model,
         task_id=task_id,
+        loss_name=loss_name,
     )
     wandb_logger = WandbLogger(
         log_model='all',
