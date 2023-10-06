@@ -79,7 +79,7 @@ TRAIN:
     BATCH_SIZE: 16
     SHUFFLE: False
   SAMPLER_N_SAMPLES: 1024 # null or int
-  MAX_EPOCHS: 100
+  MAX_EPOCHS: 200
   N_WORKERS_DATA_LOADER: 10
   LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
   DEVICES: 1 # m for m GPUs, or 1 for CPU
@@ -87,9 +87,9 @@ TRAIN:
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
     TRAIN:
       RESIZE:
-        output_size: [512, 512] # H, W - change this when enough RAM is available
+        output_size: [256, 256] # H, W - change this when enough RAM is available
       COORD2HEATMAP:
-        gauss_std: 3
+        gauss_std: 1.0
       TOTENSOR:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
@@ -97,25 +97,25 @@ TRAIN:
       # RANDOMROTATION: 
       #   degrees: [5, 10] # The min and max number of degrees to rotate in between
       #   p: 0.5 # p means probability here and in the rest of transforms
-      RANDOMFLIP: 
-        p: 0.5
-      # GAUSSIANBLUR: 
-      #   kernel_size: 3
-      #   sigma: 0.2
-      #   p: 0.1
-      # RIGHTRESIZECROP: 
-      #   width_scale_low: 0.6
-      #   width_scale_high: 1.0
+      # RANDOMFLIP: 
       #   p: 0.5
-      # RANDOMBRIGHTNESS: 
-      #   low: 0.8
-      #   high: 1.5
-      #   p: 0.2
+      GAUSSIANBLUR: 
+        kernel_size: 3
+        sigma: 0.2
+        p: 0.1
+      RIGHTRESIZECROP: 
+        width_scale_low: 0.6
+        width_scale_high: 1.0
+        p: 0.5
+      RANDOMBRIGHTNESS: 
+        low: 0.8
+        high: 1.5
+        p: 0.2
     VAL:
       RESIZE:
-        output_size: [512, 512] # H, W - change this when enough RAM is available
+        output_size: [256, 256] # H, W - change this when enough RAM is available
       COORD2HEATMAP:
-        gauss_std: 3
+        gauss_std: 1.0
       TOTENSOR:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
@@ -125,7 +125,7 @@ MODEL:
   DEVICE: "cuda"
   PARAMS:
     backbone_encoder: "timm-efficientnet-b2"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
-    backbone_weights: "imagenet"
+    backbone_weights: "noisy-student"
     freeze_backbone: False
     enc_chan_multiplier: 1
     dec_chan_multiplier: 1
