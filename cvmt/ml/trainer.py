@@ -317,6 +317,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
     accelerator = params.TRAIN.ACCELERATOR
     sampler_n_samples = params.TRAIN.SAMPLER_N_SAMPLES
     loss_name = params.TRAIN.LOSS_NAME
+    lr = params.TRAIN.LR
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -345,6 +346,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
         task_id=task_id,
         checkpoint_path=checkpoint_path,
         loss_name=loss_name,
+        lr=lr,
     )
     wandb_logger = WandbLogger(
         log_model='all',
@@ -386,6 +388,7 @@ def trainer_edge_detection_single_task(params: EasyDict,):
     accelerator = params.TRAIN.ACCELERATOR
     sampler_n_samples = params.TRAIN.SAMPLER_N_SAMPLES
     loss_name = params.TRAIN.LOSS_NAME
+    lr = params.TRAIN.LR
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -413,6 +416,7 @@ def trainer_edge_detection_single_task(params: EasyDict,):
         model=model,
         task_id=task_id,
         loss_name=loss_name,
+        lr=lr,
     )
     wandb_logger = WandbLogger(
         log_model='all',
