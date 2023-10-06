@@ -3,6 +3,7 @@ import pytorch_lightning as pl
 
 pl.seed_everything(100, workers=True)
 
+import git
 import argparse
 import os
 import sys
@@ -49,6 +50,10 @@ def main(
         run = wandb.init(**params.WANDB.INIT, config=config)
         # log code
         wandb.run.log_code(".")
+        # log code commit hash and branch
+        commit_hash, branch = get_git_info()
+        run.summary['git_commit_hash'] = commit_hash
+        run.summary['git_branch'] = branch
     except Exception as e:
         print(e)
         print(
@@ -90,6 +95,13 @@ def parse_arguments():
     parser.add_argument('--checkpoint-path', type=str, help='checkpoint_path', default=None)
     args = parser.parse_args()
     return args
+
+
+def get_git_info():
+    repo = git.Repo(search_parent_directories=True)
+    commit_hash = repo.head.object.hexsha
+    branch = repo.active_branch.name
+    return commit_hash, branch
 
 
 if __name__ == "__main__":
