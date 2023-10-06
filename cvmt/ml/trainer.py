@@ -179,12 +179,13 @@ class SingletaskTraining(pl.LightningModule):
 
     def configure_optimizers(self):
         # optimizer and StepLR scheduler
-        optimizer = torch.optim.SGD(
-            self.parameters(), lr=self.lr, momentum=0.9
+        optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.lr,
         )
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, T_0=10, T_mult=2)
-        return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        #     optimizer, T_0=20, T_mult=2)
+        #return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        return optimizer
 
     def validation_step(self, batch, batch_idx):
         x, y = batch[self.input_key_name], batch[self.output_key_name]

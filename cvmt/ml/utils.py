@@ -406,7 +406,7 @@ class Coord2HeatmapTransform(object):
         for c, coord in enumerate(landmarks):
             x, y = coord
             heatmap_ = heatmap[c, :, :]
-            heatmap_[y, x] = 255
+            heatmap_[y, x] = 1.0
             # Apply the Gaussian filter to the image
             heatmap_gauss = cv2.filter2D(heatmap_, -1, kernel)
             heatmap[c, ...] = heatmap_gauss
