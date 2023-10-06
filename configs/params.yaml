@@ -82,6 +82,7 @@ TRAIN:
   MAX_EPOCHS: 200
   N_WORKERS_DATA_LOADER: 10
   LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
+  LR: 0.0001
   DEVICES: 1 # m for m GPUs, or 1 for CPU
   ACCELERATOR: "gpu"
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
