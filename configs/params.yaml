@@ -79,12 +79,20 @@ TRAIN:
     BATCH_SIZE: 16
     SHUFFLE: False
   SAMPLER_N_SAMPLES: 1024 # null or int
-  MAX_EPOCHS: 200
+  MAX_EPOCHS: 300
   N_WORKERS_DATA_LOADER: 10
   LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
-  LR: 0.0001
+  OPTIMIZER:
+    optimizer_name: sgd # choises are Adam, SGD, ASGD
+    nesterov: False
+    momentum: 0.9
+    lr: 0.0001
+  SCHEDULER:
+    scheduler_name: cawslr # null for no scheduler, options are cawslr for CosineAnnealingWarmRestarts, calr, stlr for StepLR 
+    T_0: 10
+    T_mult: 2
   DEVICES: 1 # m for m GPUs, or 1 for CPU
-  ACCELERATOR: "gpu"
+  ACCELERATOR: gpu
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
     TRAIN:
       RESIZE:

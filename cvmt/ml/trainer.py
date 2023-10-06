@@ -15,7 +15,8 @@ from torchmetrics import MeanSquaredError
 from torchvision import transforms
 
 from .models import MultiTaskLandmarkUNetCustom
-from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping, load_loss)
+from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping,
+                    load_loss, load_optimizer, load_scheduler)
 from collections import OrderedDict
 from typing import *
 
@@ -106,7 +107,8 @@ class SingletaskTraining(pl.LightningModule):
             self,
             model: nn.Module,
             task_id: int,
-            lr: float = 1e-4,
+            optim_params: EasyDict,
+            scheduler_params: EasyDict = EasyDict({}),
             loss_name: Union[str, None] = None,
             checkpoint_path: Union[str, None] = None,
         ):
@@ -127,7 +129,8 @@ class SingletaskTraining(pl.LightningModule):
 
         # set the input and outputs
         self.loss_name = loss_name
-        self.lr = lr
+        self.optim_params = dict(optim_params)
+        self.scheduler_params = dict(scheduler_params)
 
         self._setup()
 
@@ -179,13 +182,12 @@ class SingletaskTraining(pl.LightningModule):
 
     def configure_optimizers(self):
         # optimizer and StepLR scheduler
-        optimizer = torch.optim.SGD(
-            self.parameters(), lr=self.lr,
-        )
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        #     optimizer, T_0=20, T_mult=2)
-        #return {"optimizer": optimizer, "lr_scheduler": scheduler}
-        return optimizer
+        optimizer = load_optimizer(**self.optim_params, model_parameters=self.parameters())
+        if self.scheduler_params:
+            scheduler = load_scheduler(**self.scheduler_params, optimizer=optimizer,)
+            return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        else:
+            return optimizer
 
     def validation_step(self, batch, batch_idx):
         x, y = batch[self.input_key_name], batch[self.output_key_name]
@@ -317,7 +319,8 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
     accelerator = params.TRAIN.ACCELERATOR
     sampler_n_samples = params.TRAIN.SAMPLER_N_SAMPLES
     loss_name = params.TRAIN.LOSS_NAME
-    lr = params.TRAIN.LR
+    optim_params = params.TRAIN.OPTIMIZER
+    scheduler_params = params.TRAIN.SCHEDULER
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = MultiTaskLandmarkUNetCustom(**model_params)
@@ -346,7 +349,8 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
         task_id=task_id,
         checkpoint_path=checkpoint_path,
         loss_name=loss_name,
-        lr=lr,
+        optim_params=optim_params,
+        scheduler_params=scheduler_params if scheduler_params.scheduler_name else {}, # if name is null, empty dict
     )
     wandb_logger = WandbLogger(
         log_model='all',
