@@ -47,6 +47,8 @@ def main(
         wandb.login()
         config = dict(params)
         run = wandb.init(**params.WANDB.INIT, config=config)
+        # log code
+        wandb.run.log_code(".")
     except Exception as e:
         print(e)
         print(
