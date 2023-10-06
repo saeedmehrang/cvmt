@@ -179,7 +179,7 @@ class SingletaskTraining(pl.LightningModule):
 
     def configure_optimizers(self):
         # optimizer and StepLR scheduler
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.SGD(
             self.parameters(), lr=self.lr,
         )
         # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
