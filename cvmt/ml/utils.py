@@ -809,3 +809,27 @@ def load_loss(loss_name):
     else:
         raise ValueError('Please input valid model name, {} not in loss zone.'.format(loss_name))
     return loss_fn
+
+
+def load_optimizer(optimizer_name: str, model_parameters: Any, **kwargs):
+    if optimizer_name == "sgd":
+        opt_fn = torch.optim.SGD(model_parameters, **kwargs)
+    elif optimizer_name == "adam":
+        opt_fn = torch.optim.Adam(model_parameters, **kwargs)
+    elif optimizer_name == "asgd":
+        opt_fn = torch.optim.ASGD(model_parameters, **kwargs)
+    else:
+        raise ValueError(f'Please input valid optimizer name, {optimizer_name} not in optimizer zone.')
+    return opt_fn
+
+
+def load_scheduler(scheduler_name: str, optimizer: Any, **kwargs):
+    if scheduler_name == "stlr":
+        sch_fn = torch.optim.lr_scheduler.StepLR(optimizer, **kwargs)
+    elif scheduler_name == "cawslr":
+        sch_fn = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, **kwargs)
+    elif scheduler_name == "calr":
+        sch_fn = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, **kwargs)
+    else:
+        raise ValueError(f'Please input valid scheduler name, {scheduler_name} not in scheduler zone.')
+    return sch_fn
