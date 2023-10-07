@@ -16,7 +16,7 @@ from torchvision import transforms
 
 from .models import MultiTaskLandmarkUNetCustom
 from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping,
-                    load_loss, load_optimizer, load_scheduler)
+                    load_loss, load_optimizer, load_scheduler, LogLearningRateToWandb)
 from collections import OrderedDict
 from typing import *
 
@@ -368,7 +368,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
         default_root_dir=params.WANDB.CHECKPOINTING.dir, 
         max_epochs=params.TRAIN.MAX_EPOCHS,
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, LogLearningRateToWandb()],
         log_every_n_steps=5,
         accelerator=accelerator,
         devices=devices,
@@ -438,7 +438,7 @@ def trainer_edge_detection_single_task(params: EasyDict,):
         default_root_dir=params.WANDB.CHECKPOINTING.dir, 
         max_epochs=params.TRAIN.MAX_EPOCHS,
         logger=wandb_logger,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, LogLearningRateToWandb()],
         log_every_n_steps=5,
         accelerator=accelerator,
         devices=devices,

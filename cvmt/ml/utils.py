@@ -21,6 +21,7 @@ from torch import nn
 from torch.utils.data import Dataset
 from torchvision.transforms import (GaussianBlur, RandomHorizontalFlip,
                                     RandomRotation)
+from pytorch_lightning import Callback
 
 
 class HDF5MultitaskDataset(Dataset):
@@ -833,3 +834,10 @@ def load_scheduler(scheduler_name: str, optimizer: Any, **kwargs):
     else:
         raise ValueError(f'Please input valid scheduler name, {scheduler_name} not in scheduler zone.')
     return sch_fn
+
+
+class LogLearningRateToWandb(Callback):
+    def on_train_epoch_end(self, trainer, pl_module):
+        # Log the learning rate
+        current_lr = trainer.optimizers[0].param_groups[0]['lr']
+        trainer.logger.experiment.log({'learning_rate': current_lr})
