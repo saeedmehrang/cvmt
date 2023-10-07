@@ -256,8 +256,8 @@ class OutputTransition(nn.Module):
         return out
 
 
-class UNetCL2023(nn.Module):
-    def __init__(self, in_channels=3, out_channels=1):
+class UNetCL2023(pl.LightningModule):
+    def __init__(self, in_channels=3, out_channels=38):
         super(UNetCL2023, self).__init__()
 
         self.down_tr64 = DownTransition(in_channels, 0)
@@ -270,7 +270,7 @@ class UNetCL2023(nn.Module):
         self.up_tr64 = UpTransition(128, 128, 0)
         self.out_tr = OutputTransition(64, out_channels)     
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor, **kwargs):
         self.out64, self.skip_out64 = self.down_tr64(x)
         self.out128, self.skip_out128 = self.down_tr128(self.out64)
         self.out256, self.skip_out256 = self.down_tr256(self.out128)
@@ -285,26 +285,36 @@ class UNetCL2023(nn.Module):
 
 
 
-class PretrainedUNetCL2023(nn.Module):
+class PretrainedUNetCL2023(pl.LightningModule):
     def __init__(self, model_path, out_channels):
         super(PretrainedUNetCL2023, self).__init__()
 
         # Load the pre-trained model
-        self.model = torch.load(model_path)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        state_dict = torch.load(model_path, map_location=device)
 
-        # replace last block
-        self.out_tr = OutputTransition(64, out_channels)   
+        # Define your model architecture here
+        self.model = UNetCL2023(in_channels=3, out_channels=38) # default input and output are 3 and 38
 
-    def forward(self, x):
+        # Load the state dictionary into the model
+        self.model.load_state_dict(state_dict)
+
+        # replace first and the last blocks
+        self.model.down_tr64 = DownTransition(1, 0)
+        self.model.out_tr = OutputTransition(in_channels=64, out_channels=13)   
+
+    def forward(self, x: torch.Tensor, **kwargs):
         x = self.model(x)
         return x
 
 
-def load_model(model_name: str, model_params: Dict[str, Any]):
-    if model_name == 'UNetCL2023':
-        model = UNetCL2023(**model_params) # in_channels=3, n_class=38
-    elif model_name == 'MultiTaskLandmarkUNetCustom':
-        model = MultiTaskLandmarkUNetCustom(**model_params)
+def load_model(model_name: str, **kwargs):
+    if model_name == 'unet_cl2023':
+        model = UNetCL2023(**kwargs) # in_channels=3, n_class=38
+    if model_name == 'unet_cl2023_pretrained':
+        model = PretrainedUNetCL2023(**kwargs) # model_path, n_class=38
+    elif model_name == 'custom_unet':
+        model = MultiTaskLandmarkUNetCustom(**kwargs)
     else:
         raise ValueError('Please input valid model name, {} not in model zones.'.format(model_name))
     return model
