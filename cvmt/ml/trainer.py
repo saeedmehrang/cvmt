@@ -14,9 +14,9 @@ from torch.utils.data import DataLoader, RandomSampler
 from torchmetrics import MeanSquaredError
 from torchvision import transforms
 
-from .models import MultiTaskLandmarkUNetCustom
+from .models import MultiTaskLandmarkUNetCustom, load_model
 from .utils import (HDF5MultitaskDataset, MultitaskCollator, TransformsMapping,
-                    load_loss, load_optimizer, load_scheduler, LogLearningRateToWandb)
+                    load_loss, load_optimizer, load_scheduler, LogLearningRateToWandb,)
 from collections import OrderedDict
 from typing import *
 
@@ -323,7 +323,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
     scheduler_params = params.TRAIN.SCHEDULER
     # initialize the model
     model_params = params.MODEL.PARAMS
-    model = MultiTaskLandmarkUNetCustom(**model_params)
+    model = load_model(**model_params)
     # initialize dataloader and trainer objects
     # train dataloader
     train_dataloader = create_dataloader(
@@ -395,7 +395,7 @@ def trainer_edge_detection_single_task(params: EasyDict,):
     lr = params.TRAIN.LR
     # initialize the model
     model_params = params.MODEL.PARAMS
-    model = MultiTaskLandmarkUNetCustom(**model_params)
+    model = load_model(**model_params)
     # initialize dataloader and trainer objects
     # train dataloader
     train_dataloader = create_dataloader(
