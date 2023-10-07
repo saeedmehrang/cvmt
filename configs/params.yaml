@@ -84,15 +84,13 @@ TRAIN:
   LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
   OPTIMIZER:
     optimizer_name: adam # choises are Adam, SGD, ASGD
-    ## the parameters below will be directly passed to the optimizer you named above!
     # nesterov: False
     # momentum: 0.9
     lr: 0.0001
   SCHEDULER:
     scheduler_name: null # null for no scheduler, options are cawslr for CosineAnnealingWarmRestarts, calr, stlr for StepLR 
-    # the parameters below will be directly passed to the scheduler you named above!
-    T_0: 10
-    T_mult: 2
+    # T_0: 10
+    # T_mult: 2
   DEVICES: 1 # m for m GPUs, or 1 for CPU
   ACCELERATOR: gpu
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
@@ -105,9 +103,9 @@ TRAIN:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
         {}
-      # RANDOMROTATION: 
-      #   degrees: [5, 10] # The min and max number of degrees to rotate in between
-      #   p: 0.5 # p means probability here and in the rest of transforms
+      RANDOMROTATION: 
+        degrees: [5, 10] # The min and max number of degrees to rotate in between
+        p: 0.5 # p means probability here and in the rest of transforms
       # RANDOMFLIP: 
       #   p: 0.5
       GAUSSIANBLUR: 
@@ -135,30 +133,25 @@ TRAIN:
 MODEL:
   DEVICE: "cuda"
   PARAMS:
-    model_name: unet_cl2023_pretrained
-    model_path: artifacts/best_model.pt
-    out_channels: 13
-    # model_name: custom_unet # available names are unet_cl2023, unet_cl2023_pretrained, custom_unet
-    # the parameters below will be directly passed to the model you named above!
-    # backbone_encoder: "timm-efficientnet-b2"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
-    # backbone_weights: "noisy-student"
-    # freeze_backbone: True
-    # enc_chan_multiplier: 1
-    # dec_chan_multiplier: 1
-    # enc_out_chans: [4, 8, 16, 32, 64]
-    # dec_out_chans: [128, 128, 64, 64, 32]
-    # enc_chan_multiplier: 1
-    # dec_chan_multiplier: 1
-    # in_channels: 1
-    # out_channels1: 1
-    # out_channels2: 1
-    # out_channels3: 13
-    # out_channels4: 19
+    backbone_encoder: "timm-efficientnet-b2"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
+    backbone_weights: "noisy-student"
+    freeze_backbone: False
+    enc_chan_multiplier: 1
+    dec_chan_multiplier: 1
+    enc_out_chans: [4, 8, 16, 32, 64]
+    dec_out_chans: [128, 128, 64, 64, 32]
+    enc_chan_multiplier: 1
+    dec_chan_multiplier: 1
+    in_channels: 1
+    out_channels1: 1
+    out_channels2: 1
+    out_channels3: 13
+    out_channels4: 19
 
 WANDB:
   INIT:
     project: "cephal-landmark-detection"
-    notes: "Setting optimizer to Adam, and model to pretrained one, unet_cl2023_pretrained!"
-    tags: ["unet_cl2023_pretrained", "Adam"]
+    notes: "Setting optimizer to Adam, and no learning rate scheduler!"
+    tags: ["timm-efficientnet-b2", "Adam", "W/rotation-aug"]
   CHECKPOINTING:
     dir: "artifacts/artifacts"
