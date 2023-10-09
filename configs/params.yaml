@@ -84,11 +84,13 @@ TRAIN:
   LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
   OPTIMIZER:
     optimizer_name: adam # choises are Adam, SGD, ASGD
+    ## the parameters below will be directly passed to the scheduler you named above!
     # nesterov: False
     # momentum: 0.9
     lr: 0.0001
   SCHEDULER:
-    scheduler_name: null # null for no scheduler, options are cawslr for CosineAnnealingWarmRestarts, calr, stlr for StepLR 
+    scheduler_name: null # null for no scheduler, options are cawslr for CosineAnnealingWarmRestarts, calr, stlr for StepLR
+    ## the parameters below will be directly passed to the scheduler you named above!
     # T_0: 10
     # T_mult: 2
   DEVICES: 1 # m for m GPUs, or 1 for CPU
@@ -133,6 +135,8 @@ TRAIN:
 MODEL:
   DEVICE: "cuda"
   PARAMS:
+    model_name: custom_unet # available names are unet_cl2023, unet_cl2023_pretrained, custom_unet
+    ## the parameters below will be directly passed to the model you named above!
     backbone_encoder: "timm-efficientnet-b2"  # one of https://github.com/qubvel/segmentation_models.pytorch#encoders
     backbone_weights: "noisy-student"
     freeze_backbone: False
@@ -155,3 +159,8 @@ WANDB:
     tags: ["timm-efficientnet-b2", "Adam", "W/rotation-aug"]
   CHECKPOINTING:
     dir: "artifacts/artifacts"
+
+VERIFY:
+  CHECKPOINT_PATH: "artifacts/artifacts/generous-fire-175-epoch=297-step=19072-val_loss=3.199-val_mre=16.6.ckpt"
+  WANDB_CHECKPOINT_REFERENCE_NAME: null # sm-data-science/cephal-landmark-detection/model-m19zx819:v68
+  N_IMGAES_TO_PLOT: 6 # insert an even number
