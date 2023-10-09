@@ -107,8 +107,8 @@ class SingletaskTraining(pl.LightningModule):
             self,
             model: nn.Module,
             task_id: int,
-            optim_params: EasyDict,
-            scheduler_params: EasyDict = EasyDict({}),
+            optim_params: Union[EasyDict, Dict, None] = None,
+            scheduler_params: Union[EasyDict, Dict, None] = None,
             loss_name: Union[str, None] = None,
             checkpoint_path: Union[str, None] = None,
         ):
@@ -129,8 +129,8 @@ class SingletaskTraining(pl.LightningModule):
 
         # set the input and outputs
         self.loss_name = loss_name
-        self.optim_params = dict(optim_params)
-        self.scheduler_params = dict(scheduler_params)
+        self.optim_params = dict(optim_params) if optim_params else None
+        self.scheduler_params = dict(scheduler_params) if scheduler_params else None
 
         self._setup()
 
@@ -182,12 +182,15 @@ class SingletaskTraining(pl.LightningModule):
 
     def configure_optimizers(self):
         # optimizer and StepLR scheduler
-        optimizer = load_optimizer(**self.optim_params, model_parameters=self.parameters())
-        if self.scheduler_params:
-            scheduler = load_scheduler(**self.scheduler_params, optimizer=optimizer,)
-            return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        if self.optim_params:
+            optimizer = load_optimizer(**self.optim_params, model_parameters=self.parameters())
+            if self.scheduler_params:
+                scheduler = load_scheduler(**self.scheduler_params, optimizer=optimizer,)
+                return {"optimizer": optimizer, "lr_scheduler": scheduler}
+            else:
+                return optimizer
         else:
-            return optimizer
+            raise ValueError("`optim_params` cannot be None or empty dict!")
 
     def validation_step(self, batch, batch_idx):
         x, y = batch[self.input_key_name], batch[self.output_key_name]
@@ -458,24 +461,23 @@ class MeanSquaredError_(MeanSquaredError):
         self.name = name
 
 
-def mean_radial_error(preds:torch.Tensor, targets: torch.Tensor,) -> int:
-    def max_indices_4d_tensor(inp_tensor: torch.Tensor):
-        inp_tensor_cpu = inp_tensor.detach().cpu()  
-        inp_tensor_cpu = inp_tensor_cpu.numpy()
-        bi, chi, h, w = inp_tensor_cpu.shape
-        indices = np.zeros((bi, chi, 2))
-        for b in range(bi):
-            for c in range(chi):
-                heatmap = inp_tensor_cpu[b, c, :, :]
-                max_inds = np.unravel_index(heatmap.argmax(), heatmap.shape)
-                indices[b,c,:] = np.array(max_inds)
-        return indices
+def mean_radial_error(preds: torch.Tensor, targets: torch.Tensor) -> int:
     with torch.no_grad():
         # Find the indices of the maximum value in each channel
         pred_indices = max_indices_4d_tensor(preds)
         target_indices = max_indices_4d_tensor(targets)
 
         # calculate the euclidean distances and then their mean
-        distances = np.sqrt(np.sum((target_indices - pred_indices)**2, axis=1))
-        mre = np.mean(distances)
+        distances = torch.sqrt(torch.sum((target_indices - pred_indices)**2, dim=2))
+        mre = torch.mean(distances)
     return mre
+
+
+def max_indices_4d_tensor(inp_tensor: torch.Tensor):
+    # Get the maximum values along the height and width dimensions
+    max_vals, max_inds = torch.max(inp_tensor.view(inp_tensor.shape[0], inp_tensor.shape[1], -1), dim=2)
+
+    # Convert the indices into 2D coordinates
+    max_inds_2d = torch.stack((max_inds // inp_tensor.shape[3], max_inds % inp_tensor.shape[3]), dim=2)
+
+    return max_inds_2d
