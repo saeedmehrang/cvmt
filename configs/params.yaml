@@ -155,7 +155,7 @@ MODEL:
 WANDB:
   INIT:
     project: "cephal-landmark-detection"
-    notes: "Setting optimizer to Adam, and no learning rate scheduler!"
+    notes: "Setting optimizer to Adam, and no learning rate scheduler! bug in mre metric fixed!"
     tags: ["timm-efficientnet-b2", "Adam", "W/rotation-aug"]
   CHECKPOINTING:
     dir: "artifacts/artifacts"
