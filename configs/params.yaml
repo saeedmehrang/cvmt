@@ -161,6 +161,5 @@ WANDB:
     dir: "artifacts/artifacts"
 
 VERIFY:
-  CHECKPOINT_PATH: "artifacts/artifacts/generous-fire-175-epoch=297-step=19072-val_loss=3.199-val_mre=16.6.ckpt"
-  WANDB_CHECKPOINT_REFERENCE_NAME: null # sm-data-science/cephal-landmark-detection/model-m19zx819:v68
+  WANDB_CHECKPOINT_REFERENCE_NAME: sm-data-science/cephal-landmark-detection/model-5whp8osb:v62 # copy from wandb artifacts webpage
   N_IMGAES_TO_PLOT: 6 # insert an even number
