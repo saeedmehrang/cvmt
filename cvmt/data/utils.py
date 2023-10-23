@@ -70,6 +70,9 @@ def load_and_clean_vertebral_annots(
             landmarks_list = [
                 drop_extra_landmarks(landmarks, shape_grp) 
                 for shape_grp, landmarks in zip(shape_grps, landmarks_list)]
+            landmarks_list = [
+                sort_landmarks(landmarks, shape_grp) 
+                for shape_grp, landmarks in zip(shape_grps, landmarks_list)]
             for landmarks, shape in zip(landmarks_list, v_annots['shapes']):
                 shape['points'] = landmarks
         except Exception as e:
@@ -141,7 +144,7 @@ def correct_shape_group_names(
 
 
 def drop_extra_landmarks(
-    landmarks: List[List[float]],
+    landmarks: List[float],
     shape_grp: str,
 ) -> np.ndarray:
     landmarks = np.array(landmarks)
@@ -159,6 +162,35 @@ def drop_extra_landmarks(
         )
     else:
         return landmarks
+
+
+def sort_landmarks(
+    landmarks: np.ndarray,
+    shape_grp: str,
+) -> np.ndarray:
+    # vertebrae 2
+    if shape_grp == '2':
+        # sort by the width of the landmarks
+        landmarks = landmarks[landmarks[:, 0].argsort()]
+    elif shape_grp in ['3', '4']:
+        # there are only 2 patterns in the order of 3rd and 4th vertebrae landmarks
+        # if upper left corner is index 0 and we rotate counter clock-wise, patterns 
+        # are A) 0 1 2 3 4 and B) 4 0 1 2 3
+        # find the slope of the line connecting the first and one to the last landmarks
+        # i.e. the line between 0 and 3
+        diffs = landmarks[3] - landmarks[0]
+        dx, dy = diffs[0], -diffs[1] # the negative sign is needed as y axis is reversed in images in python
+        if dy/dx < 0:
+            # pattern is A, no action needed
+            pass
+        elif dy/dx >= 0:
+            # pattern is B, place first index at the last
+            landmarks = np.roll(landmarks, 1, axis=0)
+    else:
+        raise ValueError(
+            f"Unrecognized `shape_grp` value {shape_grp} in sort_landmarks!"
+        )
+    return landmarks
 
 
 def write_v_annots(
