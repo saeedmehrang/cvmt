@@ -97,11 +97,11 @@ TRAIN:
   ACCELERATOR: gpu
   TRANSFORMS: # uncomment the trasnforms that you desire. You can also shuffle their order!
     TRAIN:
-      RESIZE:
-        output_size: [256, 256] # H, W - change this when enough RAM is available
+      CUSTOMRESIZE:
+        size: [256, 256] # H, W - change this when enough RAM is available
       COORD2HEATMAP:
         gauss_std: 1.0
-      TOTENSOR:
+      CUSTOMTOTENSOR:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
         {}
@@ -123,11 +123,11 @@ TRAIN:
         high: 1.5
         p: 0.2
     VAL:
-      RESIZE:
-        output_size: [256, 256] # H, W - change this when enough RAM is available
+      CUSTOMRESIZE:
+        size: [256, 256] # H, W - change this when enough RAM is available
       COORD2HEATMAP:
         gauss_std: 1.0
-      TOTENSOR:
+      CUSTOMTOTENSOR:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
         {}
@@ -161,5 +161,21 @@ WANDB:
     dir: "artifacts/artifacts"
 
 VERIFY:
-  WANDB_CHECKPOINT_REFERENCE_NAME: sm-data-science/cephal-landmark-detection/model-5whp8osb:v62 # copy from wandb artifacts webpage
+  WANDB_CHECKPOINT_REFERENCE_NAME: sm-data-science/cephal-landmark-detection/model-lmbw0bqa:v69 # copy from wandb artifacts webpage
   N_IMGAES_TO_PLOT: 6 # insert an even number
+
+INFERENCE:
+  TRANSFORMS:
+    RESIZE:
+      size: [256, 256] # H, W - change this when enough RAM is available
+    GRAYSCALE:
+      num_output_channels: 1
+    TOTENSOR:
+      {}
+  MCNAMARA:
+    ARGS:
+      concavity_thresh: 1.0 # 1.0 millimiter
+      ant_pos_thresh: 0.95 # anterior/posterior length ratio
+      sup_inf_thresh: 0.95 # superior/inferior length ratio
+      rect_thresh_min: 0.95 # horizontal to vertical ratio min
+      rect_thresh_max: 1.05 # horizontal to vertical ratio max
