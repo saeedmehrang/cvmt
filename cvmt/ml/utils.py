@@ -20,8 +20,9 @@ from numpy import unravel_index
 from torch import nn
 from torch.utils.data import Dataset
 from torchvision.transforms import (GaussianBlur, RandomHorizontalFlip,
-                                    RandomRotation)
+                                    RandomRotation, ToTensor, Grayscale, Resize)
 from pytorch_lightning import Callback
+import wandb
 
 
 class HDF5MultitaskDataset(Dataset):
@@ -297,25 +298,26 @@ class ResizeTransform(object):
     """Rescale the image in a sample to a given size.
 
     Args:
-        output_size (tuple or int): Desired output size. If tuple, output is
-            matched to output_size. If int, smaller of image edges is matched
-            to output_size keeping aspect ratio the same.
+        size (tuple or int): Desired output size. If tuple, output is
+            matched to size. If int, smaller of image edges is matched
+            to size keeping aspect ratio the same.
     """
 
-    def __init__(self, output_size):
-        if isinstance(output_size, (list, )):
-            output_size = tuple(output_size)
-        elif isinstance(output_size, (tuple, )):
+    def __init__(self, size, store_orig_size: bool=False):
+        if isinstance(size, (list, )):
+            size = tuple(size)
+        elif isinstance(size, (tuple, )):
             pass
         else:
-            raise ValueError("output_size must be either a Tuple or a List.")
-        self.output_size = output_size
+            raise ValueError("size must be either a Tuple or a List.")
+        self.size = size
+        self.store_orig_size = store_orig_size
 
     def __call__(self, sample):
         image = sample['image']
 
         h, w = image.shape[:2]
-        new_h, new_w = self.output_size
+        new_h, new_w = self.size
         # create the new height and width
         new_h, new_w = int(new_h), int(new_w)
         # resize the image
@@ -338,6 +340,9 @@ class ResizeTransform(object):
             edges = edges.astype(np.float32)
             resized_edges = cv2.resize(edges, (new_h, new_w), interpolation = cv2.INTER_LINEAR)
             sample['edges'] = resized_edges
+        # store the original size of the image so we can resize it back later
+        if self.store_orig_size:
+            sample['orig_size'] = (h, w,)
         return sample
 
 
@@ -750,15 +755,18 @@ class TransformsMapping:
     """A class holding the Torch vision transforms."""
     def __init__(self,):
         self.transforms = {
-            "RESIZE": ResizeTransform,
+            "CUSTOMRESIZE": ResizeTransform,
             "COORD2HEATMAP": Coord2HeatmapTransform,
-            "TOTENSOR": CustomToTensor,
+            "CUSTOMTOTENSOR": CustomToTensor,
             "SCALE01": CustomScaleto01,
             "RANDOMROTATION": RandomRotationTransform,
             "RANDOMFLIP": RandomHorFlip,
             "GAUSSIANBLUR": GaussianBlurTransform,
             "RIGHTRESIZECROP": RightResizedCrop,
             "RANDOMBRIGHTNESS": RandomBrightness,
+            "TOTENSOR": ToTensor,
+            "GRAYSCALE": Grayscale,
+            "RESIZE": Resize,
         }
 
     def get(self, name, *args, **kwargs):
@@ -841,3 +849,38 @@ class LogLearningRateToWandb(Callback):
         # Log the learning rate
         current_lr = trainer.optimizers[0].param_groups[0]['lr']
         trainer.logger.experiment.log({'learning_rate': current_lr})
+
+
+
+def download_wandb_model_checkpoint(
+    wandb_checkpoint_uri: str,
+) -> Tuple[str, str]:
+    """Download a model checkpoint from wandb server using the input URI. The input
+    URI has to be copied from wandb UI into `configs/params.yaml`.
+
+    Also, please make sure that before you call this function you pass your wandb
+    API crenetials into your active terminal. You can do this using the following
+    lines of bash,
+    export WANDB_API_KEY=<>
+    export WANDB_CACHE_DIR="artifacts"
+    export WANDB_DIR="artifacts"
+    export WANDB_USERNAME=<>
+    export WANDB_ENTITY=<>
+    export WANDB_USER_EMAIL=<>
+    """
+    if wandb_checkpoint_uri:
+        try:
+            # load the best model
+            api = wandb.Api()
+            # create the checkpoint path
+            artifact = api.artifact(wandb_checkpoint_uri)
+            artifact_dir = artifact.download()
+            checkpoint_path = artifact_dir+"/model.ckpt"
+            model_id = artifact_dir.split('/')[-1]
+        except Exception as e:
+            print(e)
+    else:
+        raise ValueError(
+            "You have to define `VERIFY.WANDB_CHECKPOINT_REFERENCE_NAME` in the config/params.yaml"
+    )
+    return checkpoint_path, model_id
