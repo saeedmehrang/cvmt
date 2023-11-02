@@ -161,7 +161,7 @@ WANDB:
     dir: "artifacts/artifacts"
 
 VERIFY:
-  WANDB_CHECKPOINT_REFERENCE_NAME: sm-data-science/cephal-landmark-detection/model-lmbw0bqa:v69 # copy from wandb artifacts webpage
+  WANDB_CHECKPOINT_REFERENCE_NAME: sm-data-science/cephal-landmark-detection/model-urt7dgbp:v47 # copy from wandb artifacts webpage
   N_IMGAES_TO_PLOT: 6 # insert an even number
 
 INFERENCE:
