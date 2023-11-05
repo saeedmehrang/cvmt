@@ -131,6 +131,15 @@ TRAIN:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
         {}
+    TEST:
+      CUSTOMRESIZE:
+        size: [256, 256] # H, W - change this when enough RAM is available
+      COORD2HEATMAP:
+        gauss_std: 1.0
+      CUSTOMTOTENSOR:
+        {} # put empty curly braces (dict) if there is no parameter
+      SCALE01:
+        {}
 
 MODEL:
   DEVICE: "cuda"

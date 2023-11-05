@@ -242,6 +242,8 @@ def create_dataloader(
         transforms_config = OrderedDict(params.TRAIN.TRANSFORMS.TRAIN)
     elif split == "val":
         transforms_config = OrderedDict(params.TRAIN.TRANSFORMS.VAL)
+    elif split == "test":
+        transforms_config = OrderedDict(params.TRAIN.TRANSFORMS.TEST)
     my_transforms = [transforms_mapping.get(t_name, **t_args) for t_name, t_args in transforms_config.items()]
     my_transforms = transforms.Compose(my_transforms)
     # instantiate the dataset and dataloader objects
