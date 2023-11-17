@@ -63,6 +63,8 @@ ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"
 TRAIN:
   METADATA_TABLE_NAME: 'metadata.hdf5'
   DATASETS_TO_INCLUDE: ['dataset_1', 'dataset_2', 'dataset_3', 'dataset_4']
+  CHECKPOINT_PATH: null # An string for tha path to a model checkpoint to be used as a 
+  # pretrained model or continuing the training.
   MULTIPLE_TASKS:
     - TASK_ID: 3
       BATCH_SIZE: 16
@@ -131,15 +133,6 @@ TRAIN:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
         {}
-    TEST:
-      CUSTOMRESIZE:
-        size: [256, 256] # H, W - change this when enough RAM is available
-      COORD2HEATMAP:
-        gauss_std: 1.0
-      CUSTOMTOTENSOR:
-        {} # put empty curly braces (dict) if there is no parameter
-      SCALE01:
-        {}
 
 MODEL:
   DEVICE: "cuda"
@@ -166,12 +159,35 @@ WANDB:
     project: "cephal-landmark-detection"
     notes: "Setting optimizer to Adam, and no learning rate scheduler! bug in mre metric fixed!"
     tags: ["timm-efficientnet-b2", "Adam", "W/rotation-aug"]
+    id: urt7dgbp # set to null if you do not want to resume a previous run
+    resume: must # set to null when no id is given
   CHECKPOINTING:
     dir: "artifacts/artifacts"
 
 VERIFY:
   WANDB_CHECKPOINT_REFERENCE_NAME: sm-data-science/cephal-landmark-detection/model-urt7dgbp:v47 # copy from wandb artifacts webpage
   N_IMGAES_TO_PLOT: 6 # insert an even number
+
+TEST:
+  CHECKPOINT_PATH: artifacts/model-urt7dgbp:v47/model.ckpt # An string for tha path to a model checkpoint to be loaded
+  LOSS_NAME: focal_loss # options are L1, mse, focal_loss, cross_entropy
+  DEVICES: 1 # m for m GPUs, or 1 for CPU
+  ACCELERATOR: gpu
+  SAMPLER_N_SAMPLES: null # null or int
+  V_LANDMARK_TASK:
+    TASK_ID: 3
+    BATCH_SIZE: 1
+    SHUFFLE: False
+  TRANSFORMS:
+    TEST:
+      CUSTOMRESIZE:
+        size: [256, 256] # H, W - change this when enough RAM is available
+      COORD2HEATMAP:
+        gauss_std: 1.0
+      CUSTOMTOTENSOR:
+        {} # put empty curly braces (dict) if there is no parameter
+      SCALE01:
+        {}
 
 INFERENCE:
   TRANSFORMS:

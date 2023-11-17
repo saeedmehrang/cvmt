@@ -12,13 +12,13 @@ from typing import *
 import wandb
 from cvmt.data import prep_all_datasets
 from cvmt.ml import (train_test_split, trainer_edge_detection_single_task,
-                     trainer_v_landmarks_single_task)
+                     trainer_v_landmarks_single_task, tester_v_landmarks_single_task)
 from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
                         remove_lightning_logs_dir)
 from easydict import EasyDict
 
-STEPS = ["data_prep", "train_test_split", "train"]
-TRAINING_TASKS = ["v_landmarks", "edges"]
+STEPS = ["data_prep", "train_test_split", "train", "test"]
+TRAINING_TASKS = ["v_landmarks", "edges",]
 CONFIG_PARAMS_PATH = "configs/params.yaml"
 
 
@@ -26,7 +26,6 @@ def main(
     params: EasyDict,
     step: str,
     training_task: str = 'v_landmarks',
-    checkpoint_path: Union[None, str] = None,
 ) -> None:
     """Main function to interact with cvmt library. 
     
@@ -34,7 +33,6 @@ def main(
         params: An EasyDict of all the parameters needed to interact with the library. See `configs/params.yaml` for more info.
         step: An string for the name of the step to run. Options are ["data_prep", "train_test_split", "train"].
         training_task: An string for the name of the training task to run. Options are ["v_landmarks", "edges"].
-        checkpoint_path: An string for tha path to a model checkpoint to be used as a pretrained model or continuing the training.
 
     Returns:
         None
@@ -42,18 +40,7 @@ def main(
 
     # setup wandb
     try:
-        # make sure not to re-use an old run
-        wandb.finish()
-        # login to the wandb sever and initialize
-        wandb.login()
-        config = dict(params)
-        run = wandb.init(**params.WANDB.INIT, config=config)
-        # log code
-        wandb.run.log_code(".")
-        # log code commit hash and branch
-        commit_hash, branch = get_git_info()
-        run.summary['git_commit_hash'] = commit_hash
-        run.summary['git_branch'] = branch
+        config_wandb(params,)
     except Exception as e:
         print(e)
         print(
@@ -70,9 +57,14 @@ def main(
     elif step == STEPS[2]:
         print(f"** Running {step}")
         if training_task == TRAINING_TASKS[0]:
-            trainer_v_landmarks_single_task(params, checkpoint_path=checkpoint_path)
+            print(f"** Running {training_task}")
+            trainer_v_landmarks_single_task(params,)
         elif training_task == TRAINING_TASKS[1]:
+            print(f"** Running {training_task}")
             trainer_edge_detection_single_task(params,)
+    elif step == STEPS[3]:
+        print(f"** Running {step}")
+        tester_v_landmarks_single_task(params,)
     elif (step not in STEPS) and (step is not None):
         print(f"Unknown function: {step}")
         sys.exit(1)
@@ -92,7 +84,6 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Read command line arguments.')
     parser.add_argument('--step', type=str, help='pipeline step',)
     parser.add_argument('--training-task', type=str, help='training_task', default='v_landmarks')
-    parser.add_argument('--checkpoint-path', type=str, help='checkpoint_path', default=None)
     args = parser.parse_args()
     return args
 
@@ -102,6 +93,24 @@ def get_git_info():
     commit_hash = repo.head.object.hexsha
     branch = repo.active_branch.name
     return commit_hash, branch
+
+
+def config_wandb(params,):
+    # make sure not to re-use an old run
+    wandb.finish()
+    # login to the wandb sever and initialize
+    wandb.login()
+    config = dict(params)
+    run = wandb.init(
+        **params.WANDB.INIT,
+        config=config,
+    )
+    # log code
+    wandb.run.log_code(".")
+    # log code commit hash and branch
+    commit_hash, branch = get_git_info()
+    run.summary['git_commit_hash'] = commit_hash
+    run.summary['git_branch'] = branch
 
 
 if __name__ == "__main__":
