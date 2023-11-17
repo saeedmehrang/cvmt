@@ -206,6 +206,20 @@ class SingletaskTraining(pl.LightningModule):
             val_mre = mean_radial_error(preds, y)
             self.log("val_mre", val_mre, prog_bar=True, logger=True)
 
+    def test_step(self, batch, batch_idx):
+        x, y = batch[self.input_key_name], batch[self.output_key_name]
+        y = y.to(torch.float32)
+        x = x.to(torch.float32)
+        preds = self.model(x, task_id=self.task_id)
+        loss = self.loss(preds, y)
+        self.log(f'test_loss', loss, prog_bar=True, logger=True)
+        self.val_mse.update(preds, y)
+        self.log(f'test_mse', self.val_mse, prog_bar=True, logger=True)
+        # check if task_id is either 3 or 4, then compute metric mre
+        if self.task_id in [3,4]: # either v or f landmark detection
+            val_mre = mean_radial_error(preds, y)
+            self.log("test_mre", val_mre, prog_bar=True, logger=True)
+
 
 def create_dataloader(
     task_id: int,
@@ -243,7 +257,7 @@ def create_dataloader(
     elif split == "val":
         transforms_config = OrderedDict(params.TRAIN.TRANSFORMS.VAL)
     elif split == "test":
-        transforms_config = OrderedDict(params.TRAIN.TRANSFORMS.TEST)
+        transforms_config = OrderedDict(params.TEST.TRANSFORMS.TEST)
     my_transforms = [transforms_mapping.get(t_name, **t_args) for t_name, t_args in transforms_config.items()]
     my_transforms = transforms.Compose(my_transforms)
     # instantiate the dataset and dataloader objects
@@ -314,7 +328,7 @@ def trainer_multitask_v_and_f_landmarks(params: EasyDict):
     return None
 
 
-def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str, None] = None):
+def trainer_v_landmarks_single_task(params: EasyDict,):
     # get the parameters
     task_config = params.TRAIN.V_LANDMARK_TASK
     task_id = task_config.TASK_ID
@@ -326,6 +340,7 @@ def trainer_v_landmarks_single_task(params: EasyDict, checkpoint_path: Union[str
     loss_name = params.TRAIN.LOSS_NAME
     optim_params = params.TRAIN.OPTIMIZER
     scheduler_params = params.TRAIN.SCHEDULER
+    checkpoint_path = params.TRAIN.CHECKPOINT_PATH
     # initialize the model
     model_params = params.MODEL.PARAMS
     model = load_model(**model_params)
@@ -483,3 +498,56 @@ def max_indices_4d_tensor(inp_tensor: torch.Tensor):
     max_inds_2d = torch.stack((max_inds // inp_tensor.shape[3], max_inds % inp_tensor.shape[3]), dim=2)
 
     return max_inds_2d
+
+
+def tester_v_landmarks_single_task(params):
+    # get the parameters
+    task_config = params.TEST.V_LANDMARK_TASK
+    task_id = task_config.TASK_ID
+    batch_size = task_config.BATCH_SIZE
+    shuffle = task_config.SHUFFLE
+    devices = params.TEST.DEVICES
+    accelerator = params.TEST.ACCELERATOR
+    sampler_n_samples = params.TEST.SAMPLER_N_SAMPLES
+    loss_name = params.TEST.LOSS_NAME
+
+    checkpoint_path = params.TEST.CHECKPOINT_PATH
+    # initialize the model
+    model_params = params.MODEL.PARAMS
+    model = load_model(**model_params)
+    # initialize dataloader and trainer objects
+    # test dataloader
+    test_dataloader = create_dataloader(
+        task_id=task_id,
+        batch_size=batch_size,
+        split='test',
+        shuffle=shuffle,
+        params=params,
+        sampler_n_samples=sampler_n_samples,
+    )
+    # initialize trainer
+    pl_model = SingletaskTraining(
+        model=model,
+        task_id=task_id,
+        checkpoint_path=checkpoint_path,
+        loss_name=loss_name,
+        optim_params=None,
+        scheduler_params=None,
+    )
+    wandb_logger = WandbLogger(
+        log_model='all',
+        save_dir=params.WANDB.CHECKPOINTING.dir,
+    )
+    trainer = pl.Trainer(
+        default_root_dir=params.WANDB.CHECKPOINTING.dir, 
+        max_epochs=params.TRAIN.MAX_EPOCHS,
+        logger=wandb_logger,
+        log_every_n_steps=5,
+        accelerator=accelerator,
+        devices=devices,
+    )
+    # run the training
+    trainer.test(
+        pl_model,
+        dataloaders=test_dataloader,
+    )
