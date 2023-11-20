@@ -12,13 +12,15 @@ from typing import *
 import wandb
 from cvmt.data import prep_all_datasets
 from cvmt.ml import (train_test_split, trainer_edge_detection_single_task,
-                     trainer_v_landmarks_single_task, tester_v_landmarks_single_task)
+                     trainer_v_landmarks_single_task, tester_v_landmarks_single_task,
+                     verify_model_perf)
 from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
                         remove_lightning_logs_dir)
 from easydict import EasyDict
 
-STEPS = ["data_prep", "train_test_split", "train", "test"]
+STEPS = ["data_prep", "train_test_split", "train", "verify", "test",]
 TRAINING_TASKS = ["v_landmarks", "edges",]
+VERIFICATION_SPLIT = ["val", "test"]
 CONFIG_PARAMS_PATH = "configs/params.yaml"
 
 
@@ -26,6 +28,7 @@ def main(
     params: EasyDict,
     step: str,
     training_task: str = 'v_landmarks',
+    verify_split: str = 'val',
 ) -> None:
     """Main function to interact with cvmt library. 
     
@@ -33,6 +36,7 @@ def main(
         params: An EasyDict of all the parameters needed to interact with the library. See `configs/params.yaml` for more info.
         step: An string for the name of the step to run. Options are ["data_prep", "train_test_split", "train"].
         training_task: An string for the name of the training task to run. Options are ["v_landmarks", "edges"].
+        verify_split: An string for the name of the data split to use for the input of verification. Options are ["val", "test"].
 
     Returns:
         None
@@ -57,12 +61,20 @@ def main(
     elif step == STEPS[2]:
         print(f"** Running {step}")
         if training_task == TRAINING_TASKS[0]:
-            print(f"** Running {training_task}")
+            print(f"** Running training for {training_task}")
             trainer_v_landmarks_single_task(params,)
         elif training_task == TRAINING_TASKS[1]:
-            print(f"** Running {training_task}")
+            print(f"** Running training for {training_task}")
             trainer_edge_detection_single_task(params,)
     elif step == STEPS[3]:
+        print(f"** Running {step}")
+        if verify_split == VERIFICATION_SPLIT[0]:
+            print(f"** Running verification for {verify_split}")
+            verify_model_perf(params, split=verify_split)
+        elif verify_split == VERIFICATION_SPLIT[1]:
+            print(f"** Running verification for {verify_split}")
+            verify_model_perf(params, split=verify_split)
+    elif step == STEPS[4]:
         print(f"** Running {step}")
         tester_v_landmarks_single_task(params,)
     elif (step not in STEPS) and (step is not None):
@@ -84,6 +96,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Read command line arguments.')
     parser.add_argument('--step', type=str, help='pipeline step',)
     parser.add_argument('--training-task', type=str, help='training_task', default='v_landmarks')
+    parser.add_argument('--verify-split', type=str, help='verification input data split', default='val')
     args = parser.parse_args()
     return args
 
