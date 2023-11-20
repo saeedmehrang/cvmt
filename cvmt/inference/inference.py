@@ -17,6 +17,8 @@ import os
 from easydict import EasyDict
 from matplotlib import gridspec
 import time
+from cvmt.ml.utils import download_wandb_model_checkpoint
+from PIL import Image
 
 
 def rescale_landmarks(
@@ -471,3 +473,55 @@ def plot_image_and_vertebral_landmarks(
     verify_dir = "artifacts/verification"
     fig.savefig(os.path.join(verify_dir, f"{img_name}_{model_id}.jpg"), dpi=300)
     time.sleep(1)
+
+
+def predict_image_cmd_interface(params: Union[EasyDict, Dict], filepath: str, px2cm_ratio: float):
+    """Pass on image file to the model stred at the location provided by
+    `filepath` arg.
+    """
+    # unpack parameters
+    use_pretrain = True
+    task_config = params.TRAIN.V_LANDMARK_TASK
+    task_id = task_config.TASK_ID
+    loss_name = params.TRAIN.LOSS_NAME
+    model_params = params.MODEL.PARAMS
+    transforms_params = params.INFERENCE.TRANSFORMS
+    mcnamara_args = params.INFERENCE.MCNAMARA.ARGS
+    concavity_thresh = mcnamara_args.concavity_thresh
+    ant_pos_thresh = mcnamara_args.ant_pos_thresh
+    sup_inf_thresh = mcnamara_args.sup_inf_thresh
+    rect_thresh_min = mcnamara_args.rect_thresh_min
+    rect_thresh_max = mcnamara_args.rect_thresh_max
+    # load the image
+    image = Image.open(filepath)
+    # load model
+    checkpoint_path, model_id = download_wandb_model_checkpoint(
+        wandb_checkpoint_uri= params.VERIFY.WANDB_CHECKPOINT_REFERENCE_NAME
+    )
+    model, device = load_pretrained_model_eval_mode(
+        model_params=model_params,
+        use_pretrain=use_pretrain,
+        checkpoint_path=checkpoint_path,
+        task_id=task_id,
+        loss_name=loss_name,
+    )
+    # pass input image to the model
+    rescaled_landmarks_coords = predict_image(
+        image=image,
+        model=model,
+        task_id=task_id,
+        transforms_params=transforms_params,
+        device=device,
+    )
+    # get the maturity stage
+    stage = classify_by_mcnamara_and_franchi(
+        rescaled_landmarks_coords,
+        px2cm_ratio,
+        concavity_thresh,
+        ant_pos_thresh,
+        sup_inf_thresh,
+        rect_thresh_min,
+        rect_thresh_max,
+    )
+    print("stage is: ", stage)
+    return stage

@@ -16,9 +16,10 @@ from cvmt.ml import (train_test_split, trainer_edge_detection_single_task,
                      verify_model_perf)
 from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
                         remove_lightning_logs_dir)
+from cvmt.inference.inference import predict_image_cmd_interface
 from easydict import EasyDict
 
-STEPS = ["data_prep", "train_test_split", "train", "verify", "test",]
+STEPS = ["data_prep", "train_test_split", "train", "verify", "test", "inference"]
 TRAINING_TASKS = ["v_landmarks", "edges",]
 VERIFICATION_SPLIT = ["val", "test"]
 CONFIG_PARAMS_PATH = "configs/params.yaml"
@@ -29,6 +30,8 @@ def main(
     step: str,
     training_task: str = 'v_landmarks',
     verify_split: str = 'val',
+    filepath: str = '',
+    pix2cm: float = 10.0,
 ) -> None:
     """Main function to interact with cvmt library. 
     
@@ -77,6 +80,9 @@ def main(
     elif step == STEPS[4]:
         print(f"** Running {step}")
         tester_v_landmarks_single_task(params,)
+    elif step == STEPS[5]:
+        print(f"** Running {step}")
+        stage = predict_image_cmd_interface(params, filepath=filepath, px2cm_ratio=pix2cm) 
     elif (step not in STEPS) and (step is not None):
         print(f"Unknown function: {step}")
         sys.exit(1)
@@ -97,6 +103,8 @@ def parse_arguments():
     parser.add_argument('--step', type=str, help='pipeline step',)
     parser.add_argument('--training-task', type=str, help='training_task', default='v_landmarks')
     parser.add_argument('--verify-split', type=str, help='verification input data split', default='val')
+    parser.add_argument('--filepath', type=str, help='path to the image for inference',)
+    parser.add_argument('--pix2cm', type=float, help='pixel to centimeter ratio as depiced on the image ruler',)
     args = parser.parse_args()
     return args
 
