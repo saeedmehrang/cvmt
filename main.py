@@ -12,8 +12,8 @@ from typing import *
 import wandb
 from cvmt.data import prep_all_datasets
 from cvmt.ml import (train_test_split, trainer_edge_detection_single_task,
-                     trainer_v_landmarks_single_task, tester_v_landmarks_single_task,
-                     verify_model_perf)
+                     trainer_v_landmarks_single_task, tester_v_landmarks_single_task)
+from cvmt.verifier import  verify_model_perf
 from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
                         remove_lightning_logs_dir)
 from cvmt.inference.inference import predict_image_cmd_interface
