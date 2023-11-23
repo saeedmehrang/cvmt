@@ -10,14 +10,13 @@ from typing import *
 import torch
 from cvmt.ml.models import load_model
 from cvmt.ml.trainer import SingletaskTraining, max_indices_4d_tensor
-from cvmt.ml.utils import TransformsMapping
+from cvmt.ml.utils import TransformsMapping, download_wandb_model_checkpoint
 from torchvision import transforms
 from pathlib import Path
 import os
 from easydict import EasyDict
 from matplotlib import gridspec
 import time
-from cvmt.ml.utils import download_wandb_model_checkpoint
 from PIL import Image
 
 
