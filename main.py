@@ -69,22 +69,26 @@ def main(
         elif training_task == TRAINING_TASKS[1]:
             print(f"** Running training for {training_task}")
             trainer_edge_detection_single_task(params,)
+        else:
+            print(f"Unknown training_task is supplied to the command: {training_task}")
+            sys.exit(1)
     elif step == STEPS[3]:
         print(f"** Running {step}")
-        if verify_split == VERIFICATION_SPLIT[0]:
+        if verify_split in VERIFICATION_SPLIT:
             print(f"** Running verification for {verify_split}")
             verify_model_perf(params, split=verify_split)
-        elif verify_split == VERIFICATION_SPLIT[1]:
-            print(f"** Running verification for {verify_split}")
-            verify_model_perf(params, split=verify_split)
+        else:
+            print(f"Unknown verify_split is supplied to the command: {verify_split}")
+            sys.exit(1)
     elif step == STEPS[4]:
         print(f"** Running {step}")
         tester_v_landmarks_single_task(params,)
     elif step == STEPS[5]:
         print(f"** Running {step}")
-        stage = predict_image_cmd_interface(params, filepath=filepath, px2cm_ratio=pix2cm) 
+        stage = predict_image_cmd_interface(params, filepath=filepath, px2cm_ratio=pix2cm)
+        print(f"******* bone age maturity stage for the image is {stage} ********")
     elif (step not in STEPS) and (step is not None):
-        print(f"Unknown function: {step}")
+        print(f"Unknown step is supplied to the command: {step}")
         sys.exit(1)
     else:
         print("****** Running prep_all_datasets ****** ")
@@ -93,8 +97,6 @@ def main(
         train_test_split(params)
         print("****** Running trainer_v_landmarks_single_task without pretraining! ****** ")
         trainer_v_landmarks_single_task(params)
-    # TODO! remove the unnecessary lightning_logs directory!
-    # remove_lightning_logs_dir()
     return None
 
 
