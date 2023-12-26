@@ -2,19 +2,7 @@ RAW_DATA_DIRECTORY: "data/raw"
 INTERMEDIATE_DATA_DIRECTORY: "data/intermediate"
 PRIMARY_DATA_DIRECTORY: "data/primary"
 ARTIFACTS_DATA_DIRECTORY: "artifacts"
-
-# raw stage data config
-RAW:
-  DATASET_1:
-    RAW_ZIP_FILE_NAME: "radiography-20221212T190109Z-001.zip"
-    RAW_ZIP_NEW_ANNOT_FILE_NAME: "label_edited-20230122T143005Z-001.zip"
-    INTERMEDIATE_DIR_NAME: "dataset_1"
-    UNWANTED_JSON_FIELDS: ['imageData']
-
-  DATASET_3:
-    RAW_RAR_FILE_NAME: "RawImage.rar"
-    RAW_DIR_NAME_TEMP: "dataset_3_bmp"
-    RAW_DIR_NAME: "dataset_3_raw_data"
+ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"
 
 # intermediate stage data config
 INTERM:
@@ -57,21 +45,12 @@ PRIMARY:
   DATASET_4:
     EDGE_DETECT_SIGMA: 3
 
-ARTIFACTS_GRAPHS_DIR_NAME: "sample_graphs"
-
 # training: primary stage data config
 TRAIN:
   METADATA_TABLE_NAME: 'metadata.hdf5'
   DATASETS_TO_INCLUDE: ['dataset_1', 'dataset_2', 'dataset_3', 'dataset_4']
   CHECKPOINT_PATH: null # An string for tha path to a model checkpoint to be used as a 
   # pretrained model or continuing the training.
-  MULTIPLE_TASKS:
-    - TASK_ID: 3
-      BATCH_SIZE: 16
-      SHUFFLE: False
-    - TASK_ID: 4
-      BATCH_SIZE: 16
-      SHUFFLE: False
   V_LANDMARK_TASK:
     TASK_ID: 3
     BATCH_SIZE: 16
