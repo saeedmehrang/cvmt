@@ -23,7 +23,7 @@ Identifying the true value of bone age maturity stage requires taking an X-ray i
 
 ## Our implementation
 
-In order to apply McNamara and Franchi's heuristics, we need to have the shapes of C3 and C4 as well as the lower edge of C2 extracted from lateral cephalogram images. For this part, we rely on automated landmark detection using deep neural networks. We have a U-Net model with Gaussian heatmap outputs centered around the landmarks. Given the size of the dataset, we utilize transfer learning with a pretrained efficientnet-b2 encoder backbone and extensive data augmentation during the training.
+In order to apply McNamara and Franchi's heuristics, we need to have the shapes of C3 and C4 as well as the lower edge of C2 extracted from lateral cephalogram images. For this part, we rely on automated landmark detection using deep neural networks. We have a UNet model with heatmap outputs containing Gaussians centered around the landmarks. Given the size of the dataset, we utilize transfer learning with a pretrained efficientnet-b2 encoder backbone and extensive data augmentation during the training.
 
 Major dependencies:
 
@@ -76,7 +76,7 @@ It is best to separate the configuration and hyperparameters from the source cod
     - export WANDB_ENTITY=<>
     - export WANDB_USER_EMAIL=<>
 
-**All the parameters and hyperparameters used in the code are specified in `configs/params.yaml`**. There are lots of twicks and changes that you can apply simply via changing the parameters in `params.yaml` file without any need to touch the code. That is, the code has a fairly high parametrization that may seem uncessary for this use-case!
+**All the parameters and hyperparameters used in the code are specified in `configs/params.yaml`**. There are lots of tweaks and tricks that you can apply simply via changing the parameters in `params.yaml` file without any need to touch the code. That is, the code has a fairly high parametrization that may seem uncessary for this use-case!
 
 ### Setting up the development environment
 
