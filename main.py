@@ -5,22 +5,29 @@ pl.seed_everything(100, workers=True)
 
 import git
 import argparse
-import os
 import sys
-from typing import *
 
 import wandb
 from cvmt.data import prep_all_datasets
-from cvmt.ml import (train_test_split, trainer_edge_detection_single_task,
-                     trainer_v_landmarks_single_task, tester_v_landmarks_single_task)
-from cvmt.verifier import  verify_model_perf
-from cvmt.utils import (load_yaml_params, nested_dict_to_easydict,
-                        remove_lightning_logs_dir)
+from cvmt.ml import (
+    train_test_split,
+    trainer_edge_detection_single_task,
+    trainer_v_landmarks_single_task,
+    tester_v_landmarks_single_task,
+)
+from cvmt.verifier import verify_model_perf
+from cvmt.utils import (
+    load_yaml_params,
+    nested_dict_to_easydict,
+)
 from cvmt.inference.inference import predict_image_cmd_interface
 from easydict import EasyDict
 
 STEPS = ["data_prep", "train_test_split", "train", "verify", "test", "inference"]
-TRAINING_TASKS = ["v_landmarks", "edges",]
+TRAINING_TASKS = [
+    "v_landmarks",
+    "edges",
+]
 VERIFICATION_SPLIT = ["val", "test"]
 CONFIG_PARAMS_PATH = "configs/params.yaml"
 
@@ -28,13 +35,13 @@ CONFIG_PARAMS_PATH = "configs/params.yaml"
 def main(
     params: EasyDict,
     step: str,
-    training_task: str = 'v_landmarks',
-    verify_split: str = 'val',
-    filepath: str = '',
+    training_task: str = "v_landmarks",
+    verify_split: str = "val",
+    filepath: str = "",
     pix2cm: float = 10.0,
 ) -> None:
-    """Main function to interact with cvmt library. 
-    
+    """Main function to interact with cvmt library.
+
     Args:
         params: An EasyDict of all the parameters needed to interact with the library. See `configs/params.yaml` for more info.
         step: An string for the name of the step to run. Options are ["data_prep", "train_test_split", "train"].
@@ -47,7 +54,9 @@ def main(
 
     # setup wandb
     try:
-        config_wandb(params,)
+        config_wandb(
+            params,
+        )
     except Exception as e:
         print(e)
         print(
@@ -65,10 +74,14 @@ def main(
         print(f"** Running {step}")
         if training_task == TRAINING_TASKS[0]:
             print(f"** Running training for {training_task}")
-            trainer_v_landmarks_single_task(params,)
+            trainer_v_landmarks_single_task(
+                params,
+            )
         elif training_task == TRAINING_TASKS[1]:
             print(f"** Running training for {training_task}")
-            trainer_edge_detection_single_task(params,)
+            trainer_edge_detection_single_task(
+                params,
+            )
         else:
             print(f"Unknown training_task is supplied to the command: {training_task}")
             sys.exit(1)
@@ -82,10 +95,14 @@ def main(
             sys.exit(1)
     elif step == STEPS[4]:
         print(f"** Running {step}")
-        tester_v_landmarks_single_task(params,)
+        tester_v_landmarks_single_task(
+            params,
+        )
     elif step == STEPS[5]:
         print(f"** Running {step}")
-        stage = predict_image_cmd_interface(params, filepath=filepath, px2cm_ratio=pix2cm)
+        stage = predict_image_cmd_interface(
+            params, filepath=filepath, px2cm_ratio=pix2cm
+        )
         print(f"******* bone age maturity stage for the image is {stage} ********")
     elif (step not in STEPS) and (step is not None):
         print(f"Unknown step is supplied to the command: {step}")
@@ -95,18 +112,36 @@ def main(
         prep_all_datasets(params)
         print("****** Running train_test_split ****** ")
         train_test_split(params)
-        print("****** Running trainer_v_landmarks_single_task without pretraining! ****** ")
+        print(
+            "****** Running trainer_v_landmarks_single_task without pretraining! ****** "
+        )
         trainer_v_landmarks_single_task(params)
     return None
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Read command line arguments.')
-    parser.add_argument('--step', type=str, help='pipeline step',)
-    parser.add_argument('--training-task', type=str, help='training_task', default='v_landmarks')
-    parser.add_argument('--verify-split', type=str, help='verification input data split', default='val')
-    parser.add_argument('--filepath', type=str, help='path to the image for inference',)
-    parser.add_argument('--pix2cm', type=float, help='pixel to centimeter ratio as depiced on the image ruler',)
+    parser = argparse.ArgumentParser(description="Read command line arguments.")
+    parser.add_argument(
+        "--step",
+        type=str,
+        help="pipeline step",
+    )
+    parser.add_argument(
+        "--training-task", type=str, help="training_task", default="v_landmarks"
+    )
+    parser.add_argument(
+        "--verify-split", type=str, help="verification input data split", default="val"
+    )
+    parser.add_argument(
+        "--filepath",
+        type=str,
+        help="path to the image for inference",
+    )
+    parser.add_argument(
+        "--pix2cm",
+        type=float,
+        help="pixel to centimeter ratio as depiced on the image ruler",
+    )
     args = parser.parse_args()
     return args
 
@@ -118,7 +153,9 @@ def get_git_info():
     return commit_hash, branch
 
 
-def config_wandb(params,):
+def config_wandb(
+    params,
+):
     # make sure not to re-use an old run
     wandb.finish()
     # login to the wandb sever and initialize
@@ -132,8 +169,8 @@ def config_wandb(params,):
     wandb.run.log_code(".")
     # log code commit hash and branch
     commit_hash, branch = get_git_info()
-    run.summary['git_commit_hash'] = commit_hash
-    run.summary['git_branch'] = branch
+    run.summary["git_commit_hash"] = commit_hash
+    run.summary["git_branch"] = branch
 
 
 if __name__ == "__main__":

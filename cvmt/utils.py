@@ -20,7 +20,7 @@ def nested_dict_to_easydict(nested_dict: Dict) -> EasyDict:
 
 
 def load_yaml_params(path) -> Dict[str, Any]:
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         params = yaml.safe_load(f)
     return params
 

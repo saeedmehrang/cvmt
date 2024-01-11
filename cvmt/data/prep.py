@@ -1,6 +1,6 @@
-"""Python functions for data preparation. 
+"""Python functions for data preparation.
 
-The first version of the data (raw zone) was in a format that needed to be changed manually. 
+The first version of the data (raw zone) was in a format that needed to be changed manually.
 
 Then, after the manual corrections on raw zone, the intermediate zone data were created.
 
@@ -22,7 +22,8 @@ from .utils import harmonize_hdf5
 
 
 class PrepDataset:
-    """ Prepare data functionality"""
+    """Prepare data functionality"""
+
     def __init__(
         self,
         interm_data_dir: Union[str, Path],
@@ -37,7 +38,7 @@ class PrepDataset:
         n_processes: int = -1,
     ) -> None:
         """
-        
+
         Args:
             interm_data_dir: PARAMS.INTERMEDIATE_DATA_DIRECTORY
             img_dir_name_dset: PARAMS.DATASET_1_INTERM_IMG_DIR_NAME,
@@ -67,7 +68,9 @@ class PrepDataset:
             n_processes = ray_cpus
         self.pool = Pool(processes=n_processes)
 
-    def __call__(self,) -> pd.DataFrame:
+    def __call__(
+        self,
+    ) -> pd.DataFrame:
         metadata = []
         # construct the path variables
         for i in range(len(self.img_dir_name_dset)):
@@ -93,10 +96,10 @@ class PrepDataset:
                 )
             # parse the directory
             self.image_filenames = os.listdir(self.image_dir)
-            
+
             # harmonize all the images and annotations
             if len(self.img_dir_name_dset) > 1:
-                self.dev_set = img_foldername.split('/')[0]
+                self.dev_set = img_foldername.split("/")[0]
             else:
                 self.dev_set = None
             # initialize the parallel function
@@ -118,12 +121,12 @@ class PrepDataset:
         # create a metadata pandas dataframe
         metadata = pd.DataFrame(metadata)
         metadata.to_hdf(
-            os.path.join(self.primary_data_dir, f'metadata_{self.dataset_name}.hdf5'),
-            key='df',
+            os.path.join(self.primary_data_dir, f"metadata_{self.dataset_name}.hdf5"),
+            key="df",
             index=False,
-            mode='w',
+            mode="w",
             append=True,
-            format='table',
+            format="table",
         )
         # shutdown ray
         ray.shutdown()
@@ -131,7 +134,7 @@ class PrepDataset:
 
 
 def prep_all_datasets(params: EasyDict):
-    """Run all datasets' preprocessing. The input data zone is 
+    """Run all datasets' preprocessing. The input data zone is
     `Intermediate` and the output zone is `Primary`.
     """
     # dataset 1 initialize
@@ -205,20 +208,20 @@ def prep_all_datasets(params: EasyDict):
 def merge_metadata_tables(params: EasyDict):
     """Read the metadata tables of the 3 input datasets and merge them into one."""
     metadata_table_1 = pd.read_hdf(
-        os.path.join(params.PRIMARY_DATA_DIRECTORY, 'metadata_dataset_1.hdf5'),
-        key='df',
+        os.path.join(params.PRIMARY_DATA_DIRECTORY, "metadata_dataset_1.hdf5"),
+        key="df",
     )
     metadata_table_2 = pd.read_hdf(
-        os.path.join(params.PRIMARY_DATA_DIRECTORY, 'metadata_dataset_2.hdf5'),
-        key='df',
+        os.path.join(params.PRIMARY_DATA_DIRECTORY, "metadata_dataset_2.hdf5"),
+        key="df",
     )
     metadata_table_3 = pd.read_hdf(
-        os.path.join(params.PRIMARY_DATA_DIRECTORY, 'metadata_dataset_3.hdf5'),
-        key='df',
+        os.path.join(params.PRIMARY_DATA_DIRECTORY, "metadata_dataset_3.hdf5"),
+        key="df",
     )
     metadata_table_4 = pd.read_hdf(
-        os.path.join(params.PRIMARY_DATA_DIRECTORY, 'metadata_dataset_4.hdf5'),
-        key='df',
+        os.path.join(params.PRIMARY_DATA_DIRECTORY, "metadata_dataset_4.hdf5"),
+        key="df",
     )
     metadata_table_all = pd.concat(
         [metadata_table_1, metadata_table_2, metadata_table_3, metadata_table_4],
@@ -229,30 +232,36 @@ def merge_metadata_tables(params: EasyDict):
     # metadata_table_all = create_validity_column(metadata_table=metadata_table_all)
     # write to disk
     metadata_table_all.to_hdf(
-        os.path.join(params.PRIMARY_DATA_DIRECTORY, 'metadata.hdf5'),
-        key='df',
+        os.path.join(params.PRIMARY_DATA_DIRECTORY, "metadata.hdf5"),
+        key="df",
         index=False,
-        mode='w',
+        mode="w",
     )
 
 
 def create_validity_column(
     metadata_table: pd.DataFrame,
 ) -> pd.DataFrame:
-    validty_arr = np.repeat(True, metadata_table.shape[0],)
+    validty_arr = np.repeat(
+        True,
+        metadata_table.shape[0],
+    )
     invalid_rows = metadata_table[
         (
-            (metadata_table['v_annots_valid'] == True) & (
-            (metadata_table['v_annots_2_rows'] != 3) | 
-            (metadata_table['v_annots_3_rows'] != 5) | 
-            (metadata_table['v_annots_4_rows'] != 5))
-        ) | (
-            (metadata_table['f_annots_valid'] == True) & (
-            metadata_table['f_annots_rows'] != 19)
+            (metadata_table["v_annots_valid"] == True)
+            & (
+                (metadata_table["v_annots_2_rows"] != 3)
+                | (metadata_table["v_annots_3_rows"] != 5)
+                | (metadata_table["v_annots_4_rows"] != 5)
+            )
+        )
+        | (
+            (metadata_table["f_annots_valid"] == True)
+            & (metadata_table["f_annots_rows"] != 19)
         )
     ]
 
     invalid_indices = invalid_rows.index.to_numpy()
     validty_arr[invalid_indices] = False
-    metadata_table['valid'] = validty_arr
+    metadata_table["valid"] = validty_arr
     return metadata_table
