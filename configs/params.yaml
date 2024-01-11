@@ -24,7 +24,7 @@ INTERM:
   DATASET_3:
     DIR_NAME: "dataset_3-20230919T192724Z-001"
     IMG_DIR_NAME: ["training/image", "test1/image", "test2/image"]
-    V_LANDMARKS_DIR_NAME: ["training/label", "test1/label", "test2/label"] 
+    V_LANDMARKS_DIR_NAME: ["training/label", "test1/label", "test2/label"]
     F_LANDMARKS_DIR_NAME: "AnnotationsByMD/400_senior"
 
   DATASET_4:
@@ -49,7 +49,7 @@ PRIMARY:
 TRAIN:
   METADATA_TABLE_NAME: 'metadata.hdf5'
   DATASETS_TO_INCLUDE: ['dataset_1', 'dataset_2', 'dataset_3', 'dataset_4']
-  CHECKPOINT_PATH: null # An string for tha path to a model checkpoint to be used as a 
+  CHECKPOINT_PATH: null # An string for tha path to a model checkpoint to be used as a
   # pretrained model or continuing the training.
   V_LANDMARK_TASK:
     TASK_ID: 3
@@ -86,20 +86,20 @@ TRAIN:
         {} # put empty curly braces (dict) if there is no parameter
       SCALE01:
         {}
-      RANDOMROTATION: 
+      RANDOMROTATION:
         degrees: [5, 10] # The min and max number of degrees to rotate in between
         p: 0.5 # p means probability here and in the rest of transforms
-      # RANDOMFLIP: 
+      # RANDOMFLIP:
       #   p: 0.5
-      GAUSSIANBLUR: 
+      GAUSSIANBLUR:
         kernel_size: 3
         sigma: 0.2
         p: 0.1
-      RIGHTRESIZECROP: 
+      RIGHTRESIZECROP:
         width_scale_low: 0.6
         width_scale_high: 1.0
         p: 0.5
-      RANDOMBRIGHTNESS: 
+      RANDOMBRIGHTNESS:
         low: 0.8
         high: 1.5
         p: 0.2
@@ -125,8 +125,6 @@ MODEL:
     dec_chan_multiplier: 1
     enc_out_chans: [4, 8, 16, 32, 64]
     dec_out_chans: [128, 128, 64, 64, 32]
-    enc_chan_multiplier: 1
-    dec_chan_multiplier: 1
     in_channels: 1
     out_channels1: 1
     out_channels2: 1

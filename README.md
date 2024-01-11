@@ -1,5 +1,5 @@
 # Bone Age Maturity estimation using a Lateral Cephalogram X-ray image and deep neural networks
-In this repository we collect the tools for the development of the X-ray image analysis for the purpose of _bone age maturity_ estimation. Bone age maturity is a key factor in designing interventions in orthodontics and dentofacial orthopedics. Bone age maturity estimation via lateral cephalogram images can be done by following the heuristics provided by _[McNamara and Franchi, "The cervical vertebral maturation method: A user’s guide", 2018](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8312535/)_. 
+In this repository we collect the tools for the development of the X-ray image analysis for the purpose of _bone age maturity_ estimation. Bone age maturity is a key factor in designing interventions in orthodontics and dentofacial orthopedics. Bone age maturity estimation via lateral cephalogram images can be done by following the heuristics provided by _[McNamara and Franchi, "The cervical vertebral maturation method: A user’s guide", 2018](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8312535/)_.
 
 Bone age maturity can be discretized into 6 levels, though bone age maturity itself is a continuous variable. The 6 bone age maturity stages are as follows,
 
@@ -51,7 +51,7 @@ Major dependencies:
 ### Clone and branch steup
 
 Clone the repo first. Then, create your own git branch and start developing on your own branch. You cannot push
-any commit to `master` branch. 
+any commit to `master` branch.
 
 ### Data download
 
@@ -97,14 +97,28 @@ python3 -m venv cephal
 
 ```
 
-Activate the environment and install the dependencies for development work. Note that the torch related packages in requirements-dev are specifically set to GPU mode. If you have no GPU available, please visit `pytorch.org` and change package version and --index-url in `requirements-dev.txt` file to a CPU-only installation.
+Activate the environment and install the dependencies for development work.
+
+For CPU
 
 ```bash
 source cephal/bin/activate
 pip3 install --upgrade pip
-pip3 install -r environment/pip/requirements-dev.txt
+pip3 install -r environment/pip/cpu/requirements-dev.txt
+pre-commit install
 pip3 install -e .
 ```
+
+For GPU
+
+```bash
+source cephal/bin/activate
+pip3 install --upgrade pip
+pip3 install -r environment/pip/gpu/requirements-dev.txt
+pre-commit install
+pip3 install -e .
+```
+
 
 2. Conda/miniconda
 
@@ -135,7 +149,7 @@ We have adopted a **_layered data engineering_** approach with 3 layers in which
 
 ### Dataset description
 
-* first batch: 
+* first batch:
 A collection of digital and analogue lateral cephalogram X-ray images which are collected in Isfahan University of Medical Sciences. These images were annotated with vertebral landmarks by our project team.
 
 * second batch:
@@ -156,13 +170,13 @@ The current cvmt package supports the following isolated (pipeline) steps,
 
 ["data_prep", "train_test_split", "train", "verify", "test", "inference"]
 
-You can run each of these steps as many times as you want through `main.py` (more instructions on how to call the code below). We have integrated _weights and biases (wandb)_ for experiment tracking. Therefore, each time you call `main.py`, a new wandb run is created for you and the logging happens for params, artifacts, git commit hash, the whole repository  remotely. There is also the `artifacts/` directory located inside the root of the repo that holds some of the wandb artifacts locally. 
+You can run each of these steps as many times as you want through `main.py` (more instructions on how to call the code below). We have integrated _weights and biases (wandb)_ for experiment tracking. Therefore, each time you call `main.py`, a new wandb run is created for you and the logging happens for params, artifacts, git commit hash, the whole repository  remotely. There is also the `artifacts/` directory located inside the root of the repo that holds some of the wandb artifacts locally.
 
-**Resuming a previosuly created wandb run**: if this is desired, set the parameter `id` under `WANDB.INIT` to the string id of the run as seen through wandb portal or api and then the other parameter `resume` to the string value `must`. This way wandb is forced to resume a previously created run! 
+**Resuming a previosuly created wandb run**: if this is desired, set the parameter `id` under `WANDB.INIT` to the string id of the run as seen through wandb portal or api and then the other parameter `resume` to the string value `must`. This way wandb is forced to resume a previously created run!
 
 You are advised not to run _"test"_ step in your development process unless you are completely done with all the development, training, and fine-tuning the prior steps. The _"train\_test\_split"_ creates _"validation"_ set out of the input datasets and you must use that one for measuring your goodness of fit and overal performance of the code during the development.
 
-To simplify and standardize the parametrization and logging of the parameters, there is a single `configs/params.yaml` file that stores all the input parameters. This yaml file gets parsed firsthand when you call `main.py` and is passed to all the steps mentioned above. 
+To simplify and standardize the parametrization and logging of the parameters, there is a single `configs/params.yaml` file that stores all the input parameters. This yaml file gets parsed firsthand when you call `main.py` and is passed to all the steps mentioned above.
 
 MORE INSTRUCTIONS ON HOW TO SPECIFY THE PARAMS WILL BE ADDED HERE, SOON!
 
@@ -184,7 +198,7 @@ python3 -m main --step data_prep
 
 ### step: train_test_split
 
-This step splits the data into training, validation, and test sets. The input for this step is the `metadata.hdf5` table that is created in previous step. 
+This step splits the data into training, validation, and test sets. The input for this step is the `metadata.hdf5` table that is created in previous step.
 
 Note! the ratio of the splitting is unfortunately hardcoded inside the code, but one can easily parametrize that and specify it in `params.yaml` file!
 
@@ -210,7 +224,7 @@ Run training step for _landmark detection_ by,
 python3 -m main --step train --training-task v_landmarks
 ```
 
-Note! If you would like continue training a pre-trained model, you should specify the parameter `CHECKPOINT_PATH` inside `params.yaml`. This parameter is set to `null` by default and as a result ignored by the code. Given that we are using wandb for experiment tracking, one can download any checkpoint using wandb api and then supply its path to the training code via the parameter `CHECKPOINT_PATH`. 
+Note! If you would like continue training a pre-trained model, you should specify the parameter `CHECKPOINT_PATH` inside `params.yaml`. This parameter is set to `null` by default and as a result ignored by the code. Given that we are using wandb for experiment tracking, one can download any checkpoint using wandb api and then supply its path to the training code via the parameter `CHECKPOINT_PATH`.
 
 
 ### step: verify
