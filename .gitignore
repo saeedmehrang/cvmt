@@ -41,6 +41,7 @@ wheels/
 .venv
 venv/
 ENV/
+cephal/
 
 # mypy
 .mypy_cache/
