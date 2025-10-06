@@ -1,4 +1,5 @@
 """Unit tests for data utils"""
+
 import pytest
 import unittest
 from cvmt.data.utils import load_image

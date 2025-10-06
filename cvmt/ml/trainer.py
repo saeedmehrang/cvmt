@@ -426,9 +426,9 @@ def trainer_v_landmarks_single_task(
         checkpoint_path=checkpoint_path,
         loss_name=loss_name,
         optim_params=optim_params,
-        scheduler_params=scheduler_params
-        if scheduler_params.scheduler_name
-        else {},  # if name is null, empty dict
+        scheduler_params=(
+            scheduler_params if scheduler_params.scheduler_name else {}
+        ),  # if name is null, empty dict
     )
     wandb_logger = WandbLogger(
         log_model="all",
