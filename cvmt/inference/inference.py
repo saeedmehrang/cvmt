@@ -4,6 +4,7 @@ McNamara et. al. in the paper
 The cervical vertebral maturation method: A user's guide
 https://pubmed.ncbi.nlm.nih.gov/29337631/
 """
+
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import *
