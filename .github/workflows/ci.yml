@@ -3,10 +3,10 @@ name: CI / Build and Test
 on:
   push:
     # Use 'master' or confirm your primary branch name
-    branches: [ master ] 
+    branches: [ master ]
   pull_request:
     # Use 'master' or confirm your primary branch name
-    branches: [ master ] 
+    branches: [ master ]
 
 jobs:
   test:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         # Targeting Python 3.13 as requested
-        python-version: ["3.13"] 
+        python-version: ["3.13"]
 
     steps:
     - name: Checkout repository
@@ -25,7 +25,7 @@ jobs:
       uses: astral-sh/setup-uv@v4
       with:
         # Cache dependencies resolved by uv
-        enable-cache: true 
+        enable-cache: true
 
     # 2. Setup Python (Best practice: use the official action)
     - name: Set up Python ${{ matrix.python-version }}
@@ -38,7 +38,7 @@ jobs:
     - name: Create Venv
       # This step creates the .venv using the Python interpreter set up above.
       # This ensures all subsequent uv commands target the correct isolated env.
-      run: uv venv 
+      run: uv venv
 
     # 4. Install dependencies (Reads pyproject.toml)
     - name: Install dependencies
