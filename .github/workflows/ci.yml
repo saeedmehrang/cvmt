@@ -1,38 +1,55 @@
-name: CI
+name: CI / Build and Test
 
 on:
   push:
-    branches: [ master ]
+    # Use 'master' or confirm your primary branch name
+    branches: [ master ] 
   pull_request:
-    branches: [ master ]
+    # Use 'master' or confirm your primary branch name
+    branches: [ master ] 
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        # Targeting Python 3.13 as requested
+        python-version: ["3.13"] 
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
+    # 1. Setup uv (Best practice: use the official action)
     - name: Install uv
       uses: astral-sh/setup-uv@v4
       with:
-        enable-cache: true
+        # Cache dependencies resolved by uv
+        enable-cache: true 
 
+    # 2. Setup Python (Best practice: use the official action)
     - name: Set up Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        # This creates the Python interpreter used by uv
 
+    # 3. Create Virtual Environment (Explicit step for clear isolation)
+    - name: Create Venv
+      # This step creates the .venv using the Python interpreter set up above.
+      # This ensures all subsequent uv commands target the correct isolated env.
+      run: uv venv 
+
+    # 4. Install dependencies (Reads pyproject.toml)
     - name: Install dependencies
-      run: |
-        uv sync --extra dev --index pytorch-cpu
-        uv pip install torch torchvision --index pytorch-cpu
+      # Installs project dependencies + dev dependencies (from optional-dependencies in toml)
+      run: uv sync --extra dev
 
+    # 5. Run pre-commit hooks (Verification)
     - name: Run pre-commit hooks
-      run: |
-        uv run pre-commit run --all-files
+      # uv run automatically uses the dependencies installed in the venv
+      run: uv run pre-commit run --all-files
 
+    # 6. Run tests with pytest
     - name: Run tests with pytest
-      run: |
-        uv run pytest tests/ -v --tb=short
+      run: uv run pytest tests/ -v --tb=short

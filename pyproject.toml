@@ -6,51 +6,39 @@ authors = [
     {name = "Saeed Mehrang", email = "saeedmehrang@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.11, <=3.13"
+requires-python = ">=3.13, <3.14"
 license = {text = "MIT"}
 
 dependencies = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
-    "h5py~=3.8.0",
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "h5py>=3.8.0",
     "matplotlib>=3.5.0",
-    "Pillow~=9.3.0",
-    "opencv-python~=4.6.0.66",
-    "numpy~=1.23.5",
-    "pandas~=1.5.2",
-    "tables~=3.8.0",
-    "scipy~=1.9.2",
-    "scikit-image~=0.21.0",
-    "torchview~=0.2.6",
-    "torchinfo~=1.8.0",
-    "segmentation-models-pytorch~=0.3.2",
-    "lightning~=2.0.2",
-    "tensorboard~=2.13.0",
-    "easydict~=1.10",
+    "Pillow>=9.3.0",
+    "opencv-python>=4.6.0",
+    "numpy>=1.23.0",
+    "pandas>=1.5.0",
+    "tables>=3.8.0",
+    "scipy>=1.9.0",
+    "scikit-image>=0.21.0",
+    "torchview>=0.2.6",
+    "torchinfo>=1.8.0",
+    "segmentation-models-pytorch>=0.3.2",
+    "lightning>=2.0.0",
+    "tensorboard>=2.13.0",
+    "easydict>=1.10",
     "PyYAML>=6.0",
     "wandb>=0.15.0",
-    "ray[default]~=2.6.3",
+    "ray[default]>=2.6.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest~=7.4.4",
+    "pytest>=7.4.0",
     "pre-commit>=3.0.0",
-    "black~=23.12.1",
-    "flake8~=7.0.0",
-    "jupyterlab~=3.5.1",
-]
-
-# CPU-only PyTorch
-cpu = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
-]
-
-# GPU PyTorch with CUDA 11.8
-gpu = [
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
+    "black>=23.12.0",
+    "flake8>=7.0.0",
+    "jupyterlab>=3.5.0",
 ]
 
 [project.urls]
@@ -66,7 +54,7 @@ include = ["cvmt*"]
 
 [tool.black]
 line-length = 88
-target-version = ['py311', 'py312', 'py313']
+target-version = ['py313']
 
 [tool.flake8]
 max-line-length = 88
@@ -78,13 +66,3 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-gpu"
-url = "https://download.pytorch.org/whl/cu118"
-explicit = true
