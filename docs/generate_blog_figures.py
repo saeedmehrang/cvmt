@@ -251,7 +251,6 @@ colors_mre = ["#3498db", "#2ecc71", "#e74c3c"]
 bars1 = ax.bar(
     splits, mre_values, color=colors_mre, alpha=0.8, edgecolor="black", linewidth=1.5
 )
-ax.set_ylabel("Mean Radial Error (pixels)", fontsize=12, fontweight="bold")
 ax.set_title("Mean Radial Error by Split", fontsize=13, fontweight="bold")
 ax.grid(axis="y", alpha=0.3, linestyle="--")
 for bar, val in zip(bars1, mre_values):
@@ -317,7 +316,7 @@ histogram_path = (
     "docs/images/media_images_mean_radial_error_hist_val_set_model-urt7dgbp_v47.png"
 )
 if os.path.exists(histogram_path):
-    ax = fig.add_subplot(gs[1, :])
+    ax = fig.add_subplot(gs[1, 0])
     histogram_img = plt.imread(histogram_path)
     ax.imshow(histogram_img)
     ax.axis("off")
@@ -326,6 +325,31 @@ if os.path.exists(histogram_path):
     )
 else:
     print(f"   ⚠ Warning: Histogram not found at {histogram_path}")
+
+
+train_mre_path = (
+    "docs/images/train_mre.png"
+)
+if os.path.exists(train_mre_path):
+    ax = fig.add_subplot(gs[1, 1])
+    train_mre = plt.imread(train_mre_path)
+    ax.imshow(train_mre)
+    ax.axis("off")
+else:
+    print(f"   ⚠ Warning: train_mre_path not found at {train_mre_path}")
+
+
+val_mre_path = (
+    "docs/images/val_mre.png"
+)
+if os.path.exists(val_mre_path):
+    ax = fig.add_subplot(gs[1, 2])
+    val_mre = plt.imread(val_mre_path)
+    ax.imshow(val_mre)
+    ax.axis("off")
+else:
+    print(f"   ⚠ Warning: val_mre_path not found at {val_mre_path}")
+
 
 plt.suptitle("Model Performance Metrics", fontsize=16, fontweight="bold", y=0.98)
 plt.savefig("docs/images/model_performance.png", dpi=150, bbox_inches="tight")
