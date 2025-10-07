@@ -230,7 +230,9 @@ All augmentations are applied to both images and landmark heatmaps to maintain c
 
 #### Visualizing Data Augmentation Effects
 
-Here's how different augmentations affect the training data:
+Data Augmentation Pipeline: The training pipeline applies data augmentation transforms sequentially in the order specified in the configuration file (configs/params.yaml). The use of OrderedDict ensures that transforms are applied in the exact sequence defined. Transforms without a probability parameter (e.g., `CUSTOMRESIZE`, `COORD2HEATMAP`, `CUSTOMTOTENSOR`, `SCALE01`) are applied to every sample, while probabilistic transforms (e.g., `RANDOMROTATION`, `GAUSSIANBLUR`, `RIGHTRESIZECROP`, `RANDOMBRIGHTNESS`) are conditionally applied based on their p parameter. For example, a transform with p=0.5 has a 50% chance of being executed on each sample, though it will always be evaluated in its designated position in the pipeline. This ordering is critical because certain transforms (like tensor conversion and normalization) must occur before subsequent augmentations that operate on tensor data.
+
+Here's how different augmentations affect the training data for illustration purposes by first applying the 4 base transforms and then applying the probabilistic transforms:
 
 ```python
 import torch
@@ -247,38 +249,97 @@ from cvmt.ml.utils import (
 )
 import matplotlib.pyplot as plt
 import numpy as np
+from skimage import data 
 
-# Load sample image and landmarks (assuming you have a sample)
-sample = {
-    'image': np.random.rand(512, 512),  # Placeholder
-    'v_landmarks': np.array([[200, 150], [210, 160], [220, 155]])  # Example
-}
+# Load the cameraman image and normalize
+original_image = data.camera().astype(np.float32) / 255.0 
+landmarks_256 = np.array([[100, 75], [110, 80], [120, 77]]) 
 
-# Define augmentation pipeline
-augmentations = transforms.Compose([
-    ResizeTransform(size=(256, 256)),
+# Base transformations (applied to all)
+base_transforms = transforms.Compose([
+    ResizeTransform(size=(256, 256)), 
     Coord2HeatmapTransform(gauss_std=2.0),
     CustomToTensor(),
-    RandomHorFlip(p=0.5),
-    RandomRotationTransform(degrees=15, p=0.5),
-    GaussianBlurTransform(kernel_size=5, sigma=(0.1, 2.0), p=0.3),
-    RandomBrightness(low=0.8, high=1.2, p=0.3),
-    CustomScaleto01()
 ])
 
-# Apply augmentations multiple times
+# Define a list of pipelines, each with a single major random augmentation
+# We need 7 augmentations plus the original for 8 plots (2x4)
+augmentation_pipelines = [
+    ("Original", transforms.Compose([
+        ResizeTransform(size=(256, 256)),
+        Coord2HeatmapTransform(gauss_std=2.0),
+        CustomToTensor(),
+        CustomScaleto01() # Final scaling
+    ])),
+    ("Horizontal Flip", transforms.Compose([
+        base_transforms, 
+        RandomHorFlip(p=1.0), # p=1.0 forces the flip
+        CustomScaleto01()
+    ])),
+    ("Rotation (+15°)", transforms.Compose([
+        base_transforms, 
+        RandomRotationTransform(degrees=15, p=1.0), # p=1.0 forces rotation (up to 15 degrees)
+        CustomScaleto01()
+    ])),
+    ("Gaussian Blur", transforms.Compose([
+        base_transforms, 
+        GaussianBlurTransform(kernel_size=5, sigma=(2.0, 2.0), p=1.0), # Fixed strong blur
+        CustomScaleto01()
+    ])),
+    ("Brightness (Darker)", transforms.Compose([
+        base_transforms, 
+        RandomBrightness(low=0.5, high=0.5, p=1.0), # Fixed darker brightness
+        CustomScaleto01()
+    ])),
+    ("Brightness (Lighter)", transforms.Compose([
+        base_transforms, 
+        RandomBrightness(low=1.5, high=1.5, p=1.0), # Fixed lighter brightness
+        CustomScaleto01()
+    ])),
+    ("Flip & Rotate", transforms.Compose([
+        base_transforms, 
+        RandomHorFlip(p=1.0),
+        RandomRotationTransform(degrees=10, p=1.0), 
+        CustomScaleto01()
+    ])),
+    ("Rotation & Blur", transforms.Compose([
+        base_transforms, 
+        RandomRotationTransform(degrees=10, p=1.0),
+        GaussianBlurTransform(kernel_size=5, sigma=(2.0, 2.0), p=1.0),
+        CustomScaleto01()
+    ]))
+]
+
+sample = {
+    'image': original_image, 
+    'v_landmarks': landmarks_256
+}
+
+# Apply augmentations 
 fig, axes = plt.subplots(2, 4, figsize=(16, 8))
-fig.suptitle('Data Augmentation Examples', fontsize=16)
+fig.suptitle('Data Augmentation Examples (Cameraman Image)', fontsize=16)
 
 for i, ax in enumerate(axes.flat):
-    augmented = augmentations(sample.copy())
+    if i < len(augmentation_pipelines):
+        title, pipeline = augmentation_pipelines[i]
+    else:
+        # Fallback for remaining slots if not enough pipelines are defined
+        title, pipeline = "Default Pipeline", augmentation_pipelines[0][1]
+
+    # Apply the specific pipeline to a fresh copy of the sample
+    augmented = pipeline(sample.copy())
+    
+    # Extract the processed image/heatmap
+    # Squeeze to remove single-dimensional channels (e.g., [1, 256, 256] -> [256, 256])
     image = augmented['image'].squeeze().numpy()
+    
+    # Plot the result
     ax.imshow(image, cmap='gray')
-    ax.set_title(f'Augmentation {i+1}')
+    ax.set_title(title) # Use the defined augmentation name as the title
     ax.axis('off')
 
 plt.tight_layout()
-plt.savefig('docs/images/augmentation_examples.png', dpi=150)
+plt.savefig('docs/images/augmentation_examples_named.png', dpi=150)
 plt.show()
 ```
 
@@ -718,10 +779,8 @@ git clone https://github.com/saeedmehrang/cvmt.git
 cd cvmt
 
 # Set up environment
-python3 -m venv cephal
-source cephal/bin/activate
-pip install -r environment/pip/gpu/requirements-dev.txt
-pip install -e .
+uv sync 
+source .venv/bin/activate
 
 # Run data preparation
 python3 -m main --step data_prep

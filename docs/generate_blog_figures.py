@@ -131,36 +131,84 @@ print("   ✓ Saved to: docs/images/heatmap_visualization.png")
 
 # Figure 4: Data Augmentation
 print("\n[3/6] Generating data augmentation examples...")
-sample_base = {
-    "image": np.random.rand(512, 512),
-    "v_landmarks": np.array([[200, 150], [210, 160], [220, 155]]),
+import torch
+from torchvision import transforms
+from cvmt.ml.utils import (
+    ResizeTransform,
+    Coord2HeatmapTransform,
+    CustomToTensor,
+    RandomHorFlip,
+    RandomRotationTransform,
+    GaussianBlurTransform,
+    RandomBrightness,
+    CustomScaleto01,
+    RightResizedCrop
+)
+import matplotlib.pyplot as plt
+import numpy as np
+# --- Import an image from scikit-image data ---
+from skimage import data 
+
+# Load a real, well-known grayscale image (the 'cameraman')
+# Ensure the image is normalized to [0, 1] for best compatibility with your pipeline
+original_image = data.camera().astype(np.float32) / 255.0 
+
+# Check image size and resize it to a larger size if needed for the example's starting point
+# We'll stick to the original size or slightly larger if needed, 
+# and let the ResizeTransform handle the final size.
+if original_image.shape[0] < 512 or original_image.shape[1] < 512:
+    # Resize to a common starting size (optional, depending on the original size)
+    # Since the cameraman image is 256x256, we'll let ResizeTransform handle it.
+    pass # Keep it at its original size (256x256) which is fine.
+
+# Example landmarks, scaled to the 256x256 image size
+landmarks_256 = np.array([[100, 75], [110, 80], [120, 77]]) 
+
+
+# Load sample image and landmarks 
+sample = {
+    'image': original_image, # Use the real image
+    'v_landmarks': landmarks_256  # Example landmarks for the 256x256 image
 }
 
-augmentations = transforms.Compose(
-    [
-        ResizeTransform(size=(256, 256)),
-        Coord2HeatmapTransform(gauss_std=2.0),
-        CustomToTensor(),
-        RandomHorFlip(p=0.5),
-        RandomRotationTransform(degrees=15, p=0.5),
-        GaussianBlurTransform(kernel_size=5, sigma=(0.1, 2.0), p=0.3),
-        RandomBrightness(low=0.8, high=1.2, p=0.3),
-        CustomScaleto01(),
-    ]
-)
+# Define augmentation pipeline (matching config.yaml TRAIN transforms)
+augmentations = transforms.Compose([
+    ResizeTransform(size=(256, 256)),
+    Coord2HeatmapTransform(gauss_std=1.0),
+    CustomToTensor(),
+    CustomScaleto01(),
+    RandomRotationTransform(degrees=[5, 10], p=0.5),
+    GaussianBlurTransform(kernel_size=3, sigma=0.2, p=0.1),
+    RightResizedCrop(width_scale_low=0.6, width_scale_high=1.0, p=0.5),
+    RandomBrightness(low=0.8, high=1.5, p=0.2)
+])
 
+# Apply augmentations multiple times
 fig, axes = plt.subplots(2, 4, figsize=(16, 8))
-fig.suptitle("Data Augmentation Examples", fontsize=16, fontweight="bold")
+fig.suptitle('Data Augmentation Examples (Cameraman Image)', fontsize=16)
 
 for i, ax in enumerate(axes.flat):
-    augmented = augmentations(sample_base.copy())
-    image = augmented["image"].squeeze().numpy()
-    ax.imshow(image, cmap="gray")
-    ax.set_title(f"Augmentation {i+1}", fontsize=12)
-    ax.axis("off")
+    # Apply augmentations to a *copy* of the sample data
+    augmented = augmentations(sample.copy())
+    
+    # The image is now a Tensor of shape [1, H, W] or [H, W] if CustomToTensor 
+    # and Coord2HeatmapTransform output a single-channel image/heatmap.
+    # We assume 'image' contains the transformed image data.
+    image = augmented['image'].squeeze().numpy()
+    
+    # Check if the output is an image or a heatmap (since you use Coord2HeatmapTransform)
+    # Assuming the 'image' key still holds the visual data (like a heatmap or the image itself 
+    # if the pipeline is structured to update the image inplace). 
+    # If the output is a set of heatmaps, you'll need to sum/visualize them differently.
+    # For a simple visual demo, we'll stick to a grayscale display.
+
+    # Plot the result
+    ax.imshow(image, cmap='gray')
+    ax.set_title(f'Augmentation {i+1}')
+    ax.axis('off')
 
 plt.tight_layout()
-plt.savefig("docs/images/augmentation_examples.png", dpi=150, bbox_inches="tight")
+plt.savefig('docs/images/augmentation_examples.png', dpi=150, bbox_inches='tight')
 plt.close()
 print("   ✓ Saved to: docs/images/augmentation_examples.png")
 

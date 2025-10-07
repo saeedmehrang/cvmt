@@ -43,7 +43,7 @@ python docs/generate_blog_figures.py
 All figures are saved to `docs/images/` directory.
 
 **Requirements:**
-- All dependencies from `requirements-dev.txt` installed
+- All dependencies from `pyproject.toml` installed
 - Optional: `torchview` for architecture visualization (`pip install torchview`)
 
 ## Publishing the Blog Post
@@ -78,13 +78,6 @@ The blog post (`machine-learning-strategy.md`) is ready for publication with:
 
 4. **Update image paths**: Change `docs/images/` paths to your website's image URL structure
 
-### Customization Tips:
-
-- **Add your actual results**: Replace placeholder MRE values with real validation metrics
-- **Include real X-ray images**: If permitted, add actual X-ray visualizations (ensure HIPAA compliance)
-- **Add your photo/bio**: Personalize the "About the Author" section
-- **Link to deployed demo**: If you deploy a web interface, add the link
-- **Social sharing**: Add social media preview images (Open Graph tags)
 
 ## Image Directory
 
