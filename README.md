@@ -1,5 +1,5 @@
 # Bone Age Maturity estimation using a Lateral Cephalogram X-ray image and deep neural networks
-In this repository we collect the tools for the development of the X-ray image analysis for the purpose of _bone age maturity_ estimation. Bone age maturity is a key factor in designing interventions in orthodontics and dentofacial orthopedics. Bone age maturity estimation via lateral cephalogram images can be done by following the heuristics provided by _[McNamara and Franchi, "The cervical vertebral maturation method: A user’s guide", 2018](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8312535/)_.
+In this repository we collect the tools for the development of the X-ray image analysis for the purpose of _bone age maturity_ estimation. Bone age maturity is a key factor in designing interventions in orthodontics and dentofacial orthopedics. Bone age maturity estimation via lateral cephalogram images can be done by following the heuristics provided by _[McNamara and Franchi, "The cervical vertebral maturation method: A user's guide", 2018](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8312535/)_.
 
 Bone age maturity can be discretized into 6 levels, though bone age maturity itself is a continuous variable. The 6 bone age maturity stages are as follows,
 
@@ -85,55 +85,71 @@ Make sure you have the repo cloned and your terminal is pointing to the root of 
 ```bash
 git clone git@github.com:saeedmehrang/cvmt.git
 cd cvmt/
-
 ```
 
-1. python virtualenv
+#### Recommended: Using uv (Fast Python Package Manager)
 
-you can use python virtual-environment for isolation of development from the default python. Use the command below in your terminal to create a virtual environment named `venv`. Upgrade the pip version also.
+[uv](https://docs.astral.sh/uv/) is an extremely fast Python package and project manager written in Rust. It's the recommended way to set up the development environment.
+
+1. **Install uv** (if not already installed):
 
 ```bash
-python3 -m venv cephal
+# On macOS and Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# On Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Activate the environment and install the dependencies for development work.
-
-For CPU
+2. **Create virtual environment and install dependencies**:
 
 ```bash
-source cephal/bin/activate
-pip3 install --upgrade pip
-pip3 install -r environment/pip/cpu/requirements-dev.txt
+# Sync all dependencies including dev dependencies
+uv sync
+
+# Activate the virtual environment
+source .venv/bin/activate  # On Linux/macOS
+# or
+.venv\Scripts\activate  # On Windows
+
+# Install pre-commit hooks
 pre-commit install
-pip3 install -e .
 ```
 
-For GPU
+That's it! uv will automatically create a virtual environment, install all dependencies (including optional dev dependencies), and ensure the project is installed in editable mode.
+
+**Note**: The project requires Python 3.13. uv will automatically download and use the correct Python version if it's not available on your system.
+
+#### Alternative: Using pip/venv
+
+If you prefer traditional pip-based setup:
 
 ```bash
-source cephal/bin/activate
-pip3 install --upgrade pip
-pip3 install -r environment/pip/gpu/requirements-dev.txt
+# Create virtual environment
+python3.13 -m venv .venv
+
+# Activate the environment
+source .venv/bin/activate  # On Linux/macOS
+
+# Install dependencies
+pip install --upgrade pip
+pip install -e ".[dev]"
 pre-commit install
-pip3 install -e .
 ```
 
+#### Alternative: Using Conda/miniconda
 
-2. Conda/miniconda
-
-First, install miniconda or conda in your system by following the instructions in the link below,
-
+First, install miniconda or conda in your system by following the instructions at:
 https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html
 
-Then, create a conda env and install the depencencies using the line below,
+Then, create a conda env and install the dependencies:
 
 ```bash
 conda env create -f environment/conda/environment.yml
-pip3 install -e .
+pip install -e .
 ```
 
-3. Docker
+#### Docker
 
 TO BE DEVELOPED AND COMPLETED!
 
