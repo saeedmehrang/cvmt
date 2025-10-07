@@ -38,7 +38,7 @@ python docs/generate_blog_figures.py
 3. `augmentation_examples.png` - Data augmentation transformations
 4. `model_performance.png` - MRE distribution and prediction examples
 5. `inference_result.png` - End-to-end inference visualization
-6. `geometric_analysis.png` - Vertebral landmark geometric analysis
+
 
 All figures are saved to `docs/images/` directory.
 
