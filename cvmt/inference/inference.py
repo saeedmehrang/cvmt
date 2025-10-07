@@ -399,21 +399,16 @@ def load_pretrained_model_eval_mode(
     Returns:
         pretrained model loaded.
     """
-    # instantiate the bare-bone model
-    model = load_model(**model_params)
-    # instantiate the pytorch lightning module that was used for training
-    pl_module = SingletaskTraining(
-        model=model,
-        task_id=task_id,
-        checkpoint_path=checkpoint_path,
-        loss_name=loss_name,
-    )
     # check if we want to load weights from a checkpoint
     if use_pretrain:
-        model = pl_module.load_from_checkpoint(
-            checkpoint_path,
-        ).model
-    # se the device to `cuda` is available, if not, cpu
+        # load the entire pl_module from checkpoint
+        pl_module = SingletaskTraining.load_from_checkpoint(checkpoint_path)
+        model = pl_module.model
+    else:
+        # instantiate a new model
+        model = load_model(**model_params)
+
+    # set the device to `cuda` if available, if not, cpu
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     # turn off gradient accumulation
