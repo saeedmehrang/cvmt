@@ -1,4 +1,4 @@
-""" The main function that is the interface to the package cvmt """
+"""The main function that is the interface to the package cvmt"""
 
 import pytorch_lightning as pl
 

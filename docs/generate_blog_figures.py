@@ -142,79 +142,82 @@ from cvmt.ml.utils import (
     GaussianBlurTransform,
     RandomBrightness,
     CustomScaleto01,
-    RightResizedCrop
+    RightResizedCrop,
 )
 import matplotlib.pyplot as plt
 import numpy as np
+
 # --- Import an image from scikit-image data ---
-from skimage import data 
+from skimage import data
 from skimage import io, color
 
 
 # Ensure the image is normalized to [0, 1] for best compatibility with your pipeline
-img = io.imread('docs/images/155.png')
-img = img[:, :, :3] # dropping alpha channel if there is
+img = io.imread("docs/images/155.png")
+img = img[:, :, :3]  # dropping alpha channel if there is
 
 if img.ndim == 3:
     img = color.rgb2gray(img)
 original_image = img.astype(np.float32)  # rgb2gray already returns 0-1 range
 
 # Check image size and resize it to a larger size if needed for the example's starting point
-# We'll stick to the original size or slightly larger if needed, 
+# We'll stick to the original size or slightly larger if needed,
 # and let the ResizeTransform handle the final size.
 if original_image.shape[0] < 512 or original_image.shape[1] < 512:
     # Resize to a common starting size (optional, depending on the original size)
     # Since the cameraman image is 256x256, we'll let ResizeTransform handle it.
-    pass # Keep it at its original size (256x256) which is fine.
+    pass  # Keep it at its original size (256x256) which is fine.
 
 # Example landmarks, scaled to the 256x256 image size
-landmarks_256 = np.array([[100, 75], [110, 80], [120, 77]]) 
+landmarks_256 = np.array([[100, 75], [110, 80], [120, 77]])
 
 
-# Load sample image and landmarks 
+# Load sample image and landmarks
 sample = {
-    'image': original_image, # Use the real image
-    'v_landmarks': landmarks_256  # Example landmarks for the 256x256 image
+    "image": original_image,  # Use the real image
+    "v_landmarks": landmarks_256,  # Example landmarks for the 256x256 image
 }
 
 # Define augmentation pipeline (matching config.yaml TRAIN transforms)
-augmentations = transforms.Compose([
-    ResizeTransform(size=(256, 256)),
-    Coord2HeatmapTransform(gauss_std=1.0),
-    CustomToTensor(),
-    CustomScaleto01(),
-    RandomRotationTransform(degrees=[5, 10], p=0.5),
-    GaussianBlurTransform(kernel_size=3, sigma=0.2, p=0.1),
-    RightResizedCrop(width_scale_low=0.6, width_scale_high=1.0, p=0.5),
-    RandomBrightness(low=0.8, high=1.5, p=0.2)
-])
+augmentations = transforms.Compose(
+    [
+        ResizeTransform(size=(256, 256)),
+        Coord2HeatmapTransform(gauss_std=1.0),
+        CustomToTensor(),
+        CustomScaleto01(),
+        RandomRotationTransform(degrees=[5, 10], p=0.5),
+        GaussianBlurTransform(kernel_size=3, sigma=0.2, p=0.1),
+        RightResizedCrop(width_scale_low=0.6, width_scale_high=1.0, p=0.5),
+        RandomBrightness(low=0.8, high=1.5, p=0.2),
+    ]
+)
 
 # Apply augmentations multiple times
 fig, axes = plt.subplots(2, 4, figsize=(16, 8))
-fig.suptitle('Data Augmentation Examples (Cameraman Image)', fontsize=16)
+fig.suptitle("Data Augmentation Examples (Cameraman Image)", fontsize=16)
 
 for i, ax in enumerate(axes.flat):
     # Apply augmentations to a *copy* of the sample data
     augmented = augmentations(sample.copy())
-    
-    # The image is now a Tensor of shape [1, H, W] or [H, W] if CustomToTensor 
+
+    # The image is now a Tensor of shape [1, H, W] or [H, W] if CustomToTensor
     # and Coord2HeatmapTransform output a single-channel image/heatmap.
     # We assume 'image' contains the transformed image data.
-    image = augmented['image'].squeeze().numpy()
-    
+    image = augmented["image"].squeeze().numpy()
+
     # Check if the output is an image or a heatmap (since you use Coord2HeatmapTransform)
-    # Assuming the 'image' key still holds the visual data (like a heatmap or the image itself 
-    # if the pipeline is structured to update the image inplace). 
+    # Assuming the 'image' key still holds the visual data (like a heatmap or the image itself
+    # if the pipeline is structured to update the image inplace).
     # If the output is a set of heatmaps, you'll need to sum/visualize them differently.
     # For a simple visual demo, we'll stick to a grayscale display.
 
     # Plot the result
-    ax.imshow(image, cmap='gray')
-    ax.set_title(f'Augmentation {i+1}')
-    ax.axis('off')
+    ax.imshow(image, cmap="gray")
+    ax.set_title(f"Augmentation {i+1}")
+    ax.axis("off")
 
 plt.tight_layout()
-plt.savefig('docs/images/augmentation_examples.png', dpi=150, bbox_inches='tight')
+plt.savefig("docs/images/augmentation_examples.png", dpi=150, bbox_inches="tight")
 plt.close()
 print("   ✓ Saved to: docs/images/augmentation_examples.png")
 
@@ -224,15 +227,15 @@ print("\n[4/5] Generating model performance visualization...")
 
 # Real performance metrics from training
 metrics = {
-    'train_mre': 2.1934,
-    'val_mre': 1.3248,
-    'test_mre': 1.3667,
-    'train_mse': 0.000045,
-    'val_mse': 0.000049,
-    'test_mse': 0.000099,
-    'train_loss': 0.6989,
-    'val_loss': 3.0782,
-    'test_loss': 1.9280
+    "train_mre": 2.1934,
+    "val_mre": 1.3248,
+    "test_mre": 1.3667,
+    "train_mse": 0.000045,
+    "val_mse": 0.000049,
+    "test_mse": 0.000099,
+    "train_loss": 0.6989,
+    "val_loss": 3.0782,
+    "test_loss": 1.9280,
 }
 
 # Create subplots for different metrics (2 rows: bar charts + histogram)
@@ -242,55 +245,90 @@ gs = fig.add_gridspec(2, 3, height_ratios=[1, 1], hspace=0.3)
 # Row 1: Bar charts for metrics
 # Plot 1: Mean Radial Error (MRE)
 ax = fig.add_subplot(gs[0, 0])
-splits = ['Train', 'Val', 'Test']
-mre_values = [metrics['train_mre'], metrics['val_mre'], metrics['test_mre']]
-colors_mre = ['#3498db', '#2ecc71', '#e74c3c']
-bars1 = ax.bar(splits, mre_values, color=colors_mre, alpha=0.8, edgecolor='black', linewidth=1.5)
-ax.set_ylabel('Mean Radial Error (pixels)', fontsize=12, fontweight='bold')
-ax.set_title('Mean Radial Error by Split', fontsize=13, fontweight='bold')
-ax.grid(axis='y', alpha=0.3, linestyle='--')
+splits = ["Train", "Val", "Test"]
+mre_values = [metrics["train_mre"], metrics["val_mre"], metrics["test_mre"]]
+colors_mre = ["#3498db", "#2ecc71", "#e74c3c"]
+bars1 = ax.bar(
+    splits, mre_values, color=colors_mre, alpha=0.8, edgecolor="black", linewidth=1.5
+)
+ax.set_ylabel("Mean Radial Error (pixels)", fontsize=12, fontweight="bold")
+ax.set_title("Mean Radial Error by Split", fontsize=13, fontweight="bold")
+ax.grid(axis="y", alpha=0.3, linestyle="--")
 for bar, val in zip(bars1, mre_values):
     height = bar.get_height()
-    ax.text(bar.get_x() + bar.get_width()/2., height + 0.05,
-            f'{val:.2f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    ax.text(
+        bar.get_x() + bar.get_width() / 2.0,
+        height + 0.05,
+        f"{val:.2f}",
+        ha="center",
+        va="bottom",
+        fontsize=10,
+        fontweight="bold",
+    )
 
 # Plot 2: Mean Squared Error (MSE)
 ax = fig.add_subplot(gs[0, 1])
-mse_values = [metrics['train_mse']*1e6, metrics['val_mse']*1e6, metrics['test_mse']*1e6]
-bars2 = ax.bar(splits, mse_values, color=colors_mre, alpha=0.8, edgecolor='black', linewidth=1.5)
-ax.set_ylabel('MSE (×10⁻⁶)', fontsize=12, fontweight='bold')
-ax.set_title('Mean Squared Error by Split', fontsize=13, fontweight='bold')
-ax.grid(axis='y', alpha=0.3, linestyle='--')
+mse_values = [
+    metrics["train_mse"] * 1e6,
+    metrics["val_mse"] * 1e6,
+    metrics["test_mse"] * 1e6,
+]
+bars2 = ax.bar(
+    splits, mse_values, color=colors_mre, alpha=0.8, edgecolor="black", linewidth=1.5
+)
+ax.set_ylabel("MSE (×10⁻⁶)", fontsize=12, fontweight="bold")
+ax.set_title("Mean Squared Error by Split", fontsize=13, fontweight="bold")
+ax.grid(axis="y", alpha=0.3, linestyle="--")
 for bar, val in zip(bars2, mse_values):
     height = bar.get_height()
-    ax.text(bar.get_x() + bar.get_width()/2., height + 1,
-            f'{val:.1f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    ax.text(
+        bar.get_x() + bar.get_width() / 2.0,
+        height + 1,
+        f"{val:.1f}",
+        ha="center",
+        va="bottom",
+        fontsize=10,
+        fontweight="bold",
+    )
 
 # Plot 3: Total Loss
 ax = fig.add_subplot(gs[0, 2])
-loss_values = [metrics['train_loss'], metrics['val_loss'], metrics['test_loss']]
-bars3 = ax.bar(splits, loss_values, color=colors_mre, alpha=0.8, edgecolor='black', linewidth=1.5)
-ax.set_ylabel('Loss', fontsize=12, fontweight='bold')
-ax.set_title('Total Loss by Split', fontsize=13, fontweight='bold')
-ax.grid(axis='y', alpha=0.3, linestyle='--')
+loss_values = [metrics["train_loss"], metrics["val_loss"], metrics["test_loss"]]
+bars3 = ax.bar(
+    splits, loss_values, color=colors_mre, alpha=0.8, edgecolor="black", linewidth=1.5
+)
+ax.set_ylabel("Loss", fontsize=12, fontweight="bold")
+ax.set_title("Total Loss by Split", fontsize=13, fontweight="bold")
+ax.grid(axis="y", alpha=0.3, linestyle="--")
 for bar, val in zip(bars3, loss_values):
     height = bar.get_height()
-    ax.text(bar.get_x() + bar.get_width()/2., height + 0.1,
-            f'{val:.2f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    ax.text(
+        bar.get_x() + bar.get_width() / 2.0,
+        height + 0.1,
+        f"{val:.2f}",
+        ha="center",
+        va="bottom",
+        fontsize=10,
+        fontweight="bold",
+    )
 
 # Row 2: MRE Histogram from validation set
-histogram_path = 'docs/images/media_images_mean_radial_error_hist_val_set_model-urt7dgbp_v47.png'
+histogram_path = (
+    "docs/images/media_images_mean_radial_error_hist_val_set_model-urt7dgbp_v47.png"
+)
 if os.path.exists(histogram_path):
     ax = fig.add_subplot(gs[1, :])
     histogram_img = plt.imread(histogram_path)
     ax.imshow(histogram_img)
-    ax.axis('off')
-    ax.set_title('Validation Set MRE Distribution', fontsize=13, fontweight='bold', pad=10)
+    ax.axis("off")
+    ax.set_title(
+        "Validation Set MRE Distribution", fontsize=13, fontweight="bold", pad=10
+    )
 else:
     print(f"   ⚠ Warning: Histogram not found at {histogram_path}")
 
-plt.suptitle('Model Performance Metrics', fontsize=16, fontweight='bold', y=0.98)
-plt.savefig('docs/images/model_performance.png', dpi=150, bbox_inches='tight')
+plt.suptitle("Model Performance Metrics", fontsize=16, fontweight="bold", y=0.98)
+plt.savefig("docs/images/model_performance.png", dpi=150, bbox_inches="tight")
 plt.close()
 print("   ✓ Saved to: docs/images/model_performance.png")
 
@@ -313,15 +351,20 @@ else:
 
     # Fallback to placeholder if source image doesn't exist
     fig, ax = plt.subplots(figsize=(8, 10))
-    ax.text(0.5, 0.5, 'Inference results image not found\nPlease add validation results',
-            ha='center', va='center', fontsize=14, transform=ax.transAxes)
+    ax.text(
+        0.5,
+        0.5,
+        "Inference results image not found\nPlease add validation results",
+        ha="center",
+        va="center",
+        fontsize=14,
+        transform=ax.transAxes,
+    )
     ax.axis("off")
     plt.tight_layout()
     plt.savefig(dest_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"   ✓ Saved placeholder to: {dest_path}")
-
-
 
 
 print("\n" + "=" * 60)

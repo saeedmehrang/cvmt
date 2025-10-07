@@ -1,4 +1,4 @@
-""" A collection of data utility functions and classes plus additional functions for
+"""A collection of data utility functions and classes plus additional functions for
 plotting and data transformations needed during training deep learning models."""
 
 import os

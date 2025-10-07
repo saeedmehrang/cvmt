@@ -361,7 +361,7 @@ def harmonize_hdf5(
 
 
 def check_v_annots_integrity(
-    v_annots: Dict[str, Any]
+    v_annots: Dict[str, Any],
 ) -> Tuple[bool, Union[None, Dict[str, Any]], Dict[str, Any]]:
     invalid = False
     v_annots_present = True if v_annots is not None else False
