@@ -78,7 +78,7 @@ try:
 
     print(f"   ✓ Model has {total_params:,} total parameters")
     print(f"   ✓ Trainable: {trainable_params:,}")
-    print(f"   ✓ Saved to: docs/images/unet_architecture.png")
+    print("   ✓ Saved to: docs/images/unet_architecture.png")
 except ImportError:
     print("   ⚠ Skipping (torchview not installed)")
 
@@ -118,7 +118,7 @@ fig.suptitle(
 for i, ax in enumerate(axes.flat):
     if i < 13:
         ax.imshow(heatmaps[i], cmap="hot")
-        ax.set_title(f"Landmark {i+1}", fontsize=10)
+        ax.set_title(f"Landmark {i + 1}", fontsize=10)
         ax.axis("off")
     else:
         ax.axis("off")
@@ -131,21 +131,7 @@ print("   ✓ Saved to: docs/images/heatmap_visualization.png")
 
 # Figure 4: Data Augmentation
 print("\n[3/5] Generating data augmentation examples...")
-import torch
-from torchvision import transforms
-from cvmt.ml.utils import (
-    ResizeTransform,
-    Coord2HeatmapTransform,
-    CustomToTensor,
-    RandomHorFlip,
-    RandomRotationTransform,
-    GaussianBlurTransform,
-    RandomBrightness,
-    CustomScaleto01,
-    RightResizedCrop,
-)
-import matplotlib.pyplot as plt
-import numpy as np
+from cvmt.ml.utils import RightResizedCrop
 
 # --- Import an image from scikit-image data ---
 from skimage import data
@@ -213,7 +199,7 @@ for i, ax in enumerate(axes.flat):
 
     # Plot the result
     ax.imshow(image, cmap="gray")
-    ax.set_title(f"Augmentation {i+1}")
+    ax.set_title(f"Augmentation {i + 1}")
     ax.axis("off")
 
 plt.tight_layout()
@@ -327,9 +313,7 @@ else:
     print(f"   ⚠ Warning: Histogram not found at {histogram_path}")
 
 
-train_mre_path = (
-    "docs/images/train_mre.png"
-)
+train_mre_path = "docs/images/train_mre.png"
 if os.path.exists(train_mre_path):
     ax = fig.add_subplot(gs[1, 1])
     train_mre = plt.imread(train_mre_path)
@@ -339,9 +323,7 @@ else:
     print(f"   ⚠ Warning: train_mre_path not found at {train_mre_path}")
 
 
-val_mre_path = (
-    "docs/images/val_mre.png"
-)
+val_mre_path = "docs/images/val_mre.png"
 if os.path.exists(val_mre_path):
     ax = fig.add_subplot(gs[1, 2])
     val_mre = plt.imread(val_mre_path)

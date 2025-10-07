@@ -5,8 +5,10 @@ import unittest
 from cvmt.data.utils import load_image
 import numpy as np
 
+# set the path to the root of the repo
 
-IMAGE_DIR = "../docs/images"
+
+IMAGE_DIR = "docs/images"
 IMAGE_FILENAME = "155.png"
 
 
