@@ -258,7 +258,7 @@ from cvmt.ml.utils import (
 import matplotlib.pyplot as plt
 import numpy as np
 # --- Import an image from scikit-image data ---
-from skimage import data 
+from skimage import data
 from skimage import io, color
 
 
@@ -271,7 +271,7 @@ if img.ndim == 3:
 original_image = img.astype(np.float32)  # rgb2gray already returns 0-1 range
 
 # Check image size and resize it to a larger size if needed for the example's starting point
-# We'll stick to the original size or slightly larger if needed, 
+# We'll stick to the original size or slightly larger if needed,
 # and let the ResizeTransform handle the final size.
 if original_image.shape[0] < 512 or original_image.shape[1] < 512:
     # Resize to a common starting size (optional, depending on the original size)
@@ -279,10 +279,10 @@ if original_image.shape[0] < 512 or original_image.shape[1] < 512:
     pass # Keep it at its original size (256x256) which is fine.
 
 # Example landmarks, scaled to the 256x256 image size
-landmarks_256 = np.array([[100, 75], [110, 80], [120, 77]]) 
+landmarks_256 = np.array([[100, 75], [110, 80], [120, 77]])
 
 
-# Load sample image and landmarks 
+# Load sample image and landmarks
 sample = {
     'image': original_image, # Use the real image
     'v_landmarks': landmarks_256  # Example landmarks for the 256x256 image
@@ -307,15 +307,15 @@ fig.suptitle('Data Augmentation Examples (Cameraman Image)', fontsize=16)
 for i, ax in enumerate(axes.flat):
     # Apply augmentations to a *copy* of the sample data
     augmented = augmentations(sample.copy())
-    
-    # The image is now a Tensor of shape [1, H, W] or [H, W] if CustomToTensor 
+
+    # The image is now a Tensor of shape [1, H, W] or [H, W] if CustomToTensor
     # and Coord2HeatmapTransform output a single-channel image/heatmap.
     # We assume 'image' contains the transformed image data.
     image = augmented['image'].squeeze().numpy()
-    
+
     # Check if the output is an image or a heatmap (since you use Coord2HeatmapTransform)
-    # Assuming the 'image' key still holds the visual data (like a heatmap or the image itself 
-    # if the pipeline is structured to update the image inplace). 
+    # Assuming the 'image' key still holds the visual data (like a heatmap or the image itself
+    # if the pipeline is structured to update the image inplace).
     # If the output is a set of heatmaps, you'll need to sum/visualize them differently.
     # For a simple visual demo, we'll stick to a grayscale display.
 
@@ -663,7 +663,7 @@ git clone https://github.com/saeedmehrang/cvmt.git
 cd cvmt
 
 # Set up environment
-uv sync 
+uv sync
 source .venv/bin/activate
 
 # Run data preparation
