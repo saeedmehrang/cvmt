@@ -126,16 +126,10 @@ class SingletaskTraining(pl.LightningModule):
         optim_params: Union[EasyDict, Dict, None] = None,
         scheduler_params: Union[EasyDict, Dict, None] = None,
         loss_name: Union[str, None] = None,
-        checkpoint_path: Union[str, None] = None,
     ):
         super().__init__()
         # model
         self.model = model
-        # if chekpoint is supplied
-        if checkpoint_path:
-            self.model = self.load_from_checkpoint(
-                checkpoint_path,
-            ).model
         # input args
         self.task_id = task_id
         self.save_hyperparameters(
@@ -420,16 +414,18 @@ def trainer_v_landmarks_single_task(
         sampler_n_samples=None,
     )
     # initialize trainer
-    pl_model = SingletaskTraining(
-        model=model,
-        task_id=task_id,
-        checkpoint_path=checkpoint_path,
-        loss_name=loss_name,
-        optim_params=optim_params,
-        scheduler_params=(
-            scheduler_params if scheduler_params.scheduler_name else {}
-        ),  # if name is null, empty dict
-    )
+    if checkpoint_path:
+        pl_model = SingletaskTraining.load_from_checkpoint(checkpoint_path)
+    else:
+        pl_model = SingletaskTraining(
+            model=model,
+            task_id=task_id,
+            loss_name=loss_name,
+            optim_params=optim_params,
+            scheduler_params=(
+                scheduler_params if scheduler_params.scheduler_name else {}
+            ),  # if name is null, empty dict
+        )
     wandb_logger = WandbLogger(
         log_model="all",
         save_dir=params.WANDB.CHECKPOINTING.dir,
@@ -590,14 +586,16 @@ def tester_v_landmarks_single_task(params):
         sampler_n_samples=sampler_n_samples,
     )
     # initialize trainer
-    pl_model = SingletaskTraining(
-        model=model,
-        task_id=task_id,
-        checkpoint_path=checkpoint_path,
-        loss_name=loss_name,
-        optim_params=None,
-        scheduler_params=None,
-    )
+    if checkpoint_path:
+        pl_model = SingletaskTraining.load_from_checkpoint(checkpoint_path)
+    else:
+        pl_model = SingletaskTraining(
+            model=model,
+            task_id=task_id,
+            loss_name=loss_name,
+            optim_params=None,
+            scheduler_params=None,
+        )
     wandb_logger = WandbLogger(
         log_model="all",
         save_dir=params.WANDB.CHECKPOINTING.dir,
