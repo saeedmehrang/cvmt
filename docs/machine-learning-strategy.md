@@ -32,7 +32,7 @@ The challenge is to automatically locate 13 specific points (landmarks) on three
 - Limited training data (~800 images)
 - Need for clinical-grade accuracy (low Mean Radial Error)
 
-![Cervical Vertebrae Landmarks](images/../docs/images/six_bone_age_maturity_stages.png)
+![Cervical Vertebrae Landmarks](images/six_bone_age_maturity_stages.png)
 *Figure 1: The six bone age maturity stages based on cervical vertebral morphology (McNamara & Franchi method)*
 
 ## Machine Learning Architecture
@@ -691,4 +691,4 @@ This work builds on the clinical research of McNamara and Franchi, and leverages
 
 **About the Author**: This project demonstrates practical expertise in computer vision, deep learning, medical imaging, and production ML systems. The techniques shown here are applicable to many medical imaging problems beyond bone age assessment.
 
-*If you found this blog post helpful, consider starring the [GitHub repository](images/https://github.com/saeedmehrang/cvmt) and sharing with others interested in medical AI!*
+*If you found this blog post helpful, consider starring the [GitHub repository](https://github.com/saeedmehrang/cvmt) and sharing with others interested in medical AI!*
