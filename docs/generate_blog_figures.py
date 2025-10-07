@@ -47,7 +47,7 @@ print("=" * 60)
 
 
 # Figure 2: U-Net Architecture
-print("\n[1/6] Generating U-Net architecture visualization...")
+print("\n[1/5] Generating U-Net architecture visualization...")
 try:
     from torchview import draw_graph
 
@@ -84,7 +84,7 @@ except ImportError:
 
 
 # Figure 3: Gaussian Heatmaps
-print("\n[2/6] Generating Gaussian heatmap visualization...")
+print("\n[2/5] Generating Gaussian heatmap visualization...")
 landmarks = np.array(
     [
         [128, 50],
@@ -130,7 +130,7 @@ print("   ✓ Saved to: docs/images/heatmap_visualization.png")
 
 
 # Figure 4: Data Augmentation
-print("\n[3/6] Generating data augmentation examples...")
+print("\n[3/5] Generating data augmentation examples...")
 import torch
 from torchvision import transforms
 from cvmt.ml.utils import (
@@ -148,10 +148,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 # --- Import an image from scikit-image data ---
 from skimage import data 
+from skimage import io, color
 
-# Load a real, well-known grayscale image (the 'cameraman')
+
 # Ensure the image is normalized to [0, 1] for best compatibility with your pipeline
-original_image = data.camera().astype(np.float32) / 255.0 
+img = io.imread('docs/images/155.png')
+img = img[:, :, :3] # dropping alpha channel if there is
+
+if img.ndim == 3:
+    img = color.rgb2gray(img)
+original_image = img.astype(np.float32)  # rgb2gray already returns 0-1 range
 
 # Check image size and resize it to a larger size if needed for the example's starting point
 # We'll stick to the original size or slightly larger if needed, 
@@ -214,216 +220,108 @@ print("   ✓ Saved to: docs/images/augmentation_examples.png")
 
 
 # Figure 5: Model Performance
-print("\n[4/6] Generating model performance visualization...")
-# Simulate MRE distribution
-np.random.seed(42)
-mre_values = np.random.gamma(2, 1.5, 500)
+print("\n[4/5] Generating model performance visualization...")
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+# Real performance metrics from training
+metrics = {
+    'train_mre': 2.1934,
+    'val_mre': 1.3248,
+    'test_mre': 1.3667,
+    'train_mse': 0.000045,
+    'val_mse': 0.000049,
+    'test_mse': 0.000099,
+    'train_loss': 0.6989,
+    'val_loss': 3.0782,
+    'test_loss': 1.9280
+}
 
-# Histogram
-axes[0].hist(mre_values, bins=25, color="steelblue", alpha=0.7, edgecolor="black")
-axes[0].axvline(
-    np.median(mre_values),
-    color="red",
-    linestyle="--",
-    linewidth=2,
-    label=f"Median: {np.median(mre_values):.2f}px",
-)
-axes[0].axvline(
-    np.percentile(mre_values, 25),
-    color="orange",
-    linestyle="--",
-    linewidth=1.5,
-    label=f"25th: {np.percentile(mre_values, 25):.2f}px",
-)
-axes[0].axvline(
-    np.percentile(mre_values, 75),
-    color="green",
-    linestyle="--",
-    linewidth=1.5,
-    label=f"75th: {np.percentile(mre_values, 75):.2f}px",
-)
-axes[0].set_xlabel("Mean Radial Error (pixels)", fontsize=12)
-axes[0].set_ylabel("Frequency", fontsize=12)
-axes[0].set_title(
-    "Distribution of Mean Radial Error on Validation Set",
-    fontsize=14,
-    fontweight="bold",
-)
-axes[0].legend()
-axes[0].grid(alpha=0.3)
+# Create subplots for different metrics (2 rows: bar charts + histogram)
+fig = plt.figure(figsize=(15, 10))
+gs = fig.add_gridspec(2, 3, height_ratios=[1, 1], hspace=0.3)
 
-# Sample prediction
-image = np.random.rand(256, 256) * 0.5
-pred_landmarks = np.array(
-    [
-        [128, 50],
-        [135, 60],
-        [142, 55],
-        [120, 100],
-        [128, 110],
-        [136, 115],
-        [144, 110],
-        [152, 100],
-        [115, 160],
-        [125, 170],
-        [135, 175],
-        [145, 170],
-        [155, 160],
-    ]
-)
-true_landmarks = pred_landmarks + np.random.randn(13, 2) * 2
+# Row 1: Bar charts for metrics
+# Plot 1: Mean Radial Error (MRE)
+ax = fig.add_subplot(gs[0, 0])
+splits = ['Train', 'Val', 'Test']
+mre_values = [metrics['train_mre'], metrics['val_mre'], metrics['test_mre']]
+colors_mre = ['#3498db', '#2ecc71', '#e74c3c']
+bars1 = ax.bar(splits, mre_values, color=colors_mre, alpha=0.8, edgecolor='black', linewidth=1.5)
+ax.set_ylabel('Mean Radial Error (pixels)', fontsize=12, fontweight='bold')
+ax.set_title('Mean Radial Error by Split', fontsize=13, fontweight='bold')
+ax.grid(axis='y', alpha=0.3, linestyle='--')
+for bar, val in zip(bars1, mre_values):
+    height = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2., height + 0.05,
+            f'{val:.2f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
-axes[1].imshow(image, cmap="gray")
-for i, landmark in enumerate(pred_landmarks):
-    axes[1].add_patch(
-        patches.Circle(
-            (landmark[0], landmark[1]),
-            radius=2,
-            color="cyan",
-            label="Predicted" if i == 0 else "",
-        )
-    )
-    axes[1].text(landmark[0] + 3, landmark[1], str(i), color="orange", fontsize=8)
-for i, landmark in enumerate(true_landmarks):
-    axes[1].add_patch(
-        patches.Circle(
-            (landmark[0], landmark[1]),
-            radius=2,
-            color="yellow",
-            alpha=0.6,
-            label="Ground Truth" if i == 0 else "",
-        )
-    )
+# Plot 2: Mean Squared Error (MSE)
+ax = fig.add_subplot(gs[0, 1])
+mse_values = [metrics['train_mse']*1e6, metrics['val_mse']*1e6, metrics['test_mse']*1e6]
+bars2 = ax.bar(splits, mse_values, color=colors_mre, alpha=0.8, edgecolor='black', linewidth=1.5)
+ax.set_ylabel('MSE (×10⁻⁶)', fontsize=12, fontweight='bold')
+ax.set_title('Mean Squared Error by Split', fontsize=13, fontweight='bold')
+ax.grid(axis='y', alpha=0.3, linestyle='--')
+for bar, val in zip(bars2, mse_values):
+    height = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2., height + 1,
+            f'{val:.1f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
-axes[1].set_title("Predicted vs Ground Truth Landmarks", fontsize=14, fontweight="bold")
-axes[1].axis("off")
-legend_elements = [
-    Line2D(
-        [0],
-        [0],
-        marker="o",
-        color="w",
-        label="Predicted",
-        markerfacecolor="cyan",
-        markersize=10,
-    ),
-    Line2D(
-        [0],
-        [0],
-        marker="o",
-        color="w",
-        label="Ground Truth",
-        markerfacecolor="yellow",
-        markersize=10,
-    ),
-]
-axes[1].legend(handles=legend_elements, loc="lower right")
+# Plot 3: Total Loss
+ax = fig.add_subplot(gs[0, 2])
+loss_values = [metrics['train_loss'], metrics['val_loss'], metrics['test_loss']]
+bars3 = ax.bar(splits, loss_values, color=colors_mre, alpha=0.8, edgecolor='black', linewidth=1.5)
+ax.set_ylabel('Loss', fontsize=12, fontweight='bold')
+ax.set_title('Total Loss by Split', fontsize=13, fontweight='bold')
+ax.grid(axis='y', alpha=0.3, linestyle='--')
+for bar, val in zip(bars3, loss_values):
+    height = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2., height + 0.1,
+            f'{val:.2f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
-plt.tight_layout()
-plt.savefig("docs/images/model_performance.png", dpi=150, bbox_inches="tight")
+# Row 2: MRE Histogram from validation set
+histogram_path = 'docs/images/media_images_mean_radial_error_hist_val_set_model-urt7dgbp_v47.png'
+if os.path.exists(histogram_path):
+    ax = fig.add_subplot(gs[1, :])
+    histogram_img = plt.imread(histogram_path)
+    ax.imshow(histogram_img)
+    ax.axis('off')
+    ax.set_title('Validation Set MRE Distribution', fontsize=13, fontweight='bold', pad=10)
+else:
+    print(f"   ⚠ Warning: Histogram not found at {histogram_path}")
+
+plt.suptitle('Model Performance Metrics', fontsize=16, fontweight='bold', y=0.98)
+plt.savefig('docs/images/model_performance.png', dpi=150, bbox_inches='tight')
 plt.close()
-
 print("   ✓ Saved to: docs/images/model_performance.png")
-print(f"   ✓ Mean MRE: {np.mean(mre_values):.2f} ± {np.std(mre_values):.2f} pixels")
-print(f"   ✓ Median MRE: {np.median(mre_values):.2f} pixels")
 
 
-# Figure 6: Inference Result (placeholder)
-print("\n[5/6] Generating inference result visualization...")
-fig, ax = plt.subplots(figsize=(8, 10))
-image = np.random.rand(512, 512) * 0.6
-landmarks = pred_landmarks * 2  # Scale up for larger image
+# Figure 6: Inference Result (using real validation results)
+print("\n[5/5] Copying inference result visualization...")
+import shutil
 
-ax.imshow(image, cmap="gray")
-for i, landmark in enumerate(landmarks):
-    ax.add_patch(
-        patches.Circle(
-            (landmark[0], landmark[1]), radius=4, color="cyan", linewidth=2, fill=False
-        )
-    )
-    ax.text(
-        landmark[0] + 5,
-        landmark[1],
-        str(i),
-        color="orange",
-        fontsize=10,
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="black", alpha=0.7),
-    )
+# Use the actual validation results image with target and predicted landmarks
+source_path = "docs/images/media_images_random_samples_val_model-urt7dgbp_v47.png"
+dest_path = "docs/images/inference_result.png"
 
-ax.set_title("Predicted Stage: CS3", fontsize=16, fontweight="bold", pad=20)
-ax.text(
-    0.5,
-    0.02,
-    "Bone Age Maturity Assessment Complete",
-    transform=ax.transAxes,
-    ha="center",
-    fontsize=12,
-    bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgreen", alpha=0.8),
-)
-ax.axis("off")
+if os.path.exists(source_path):
+    shutil.copy(source_path, dest_path)
+    print(f"   ✓ Copied validation results from: {source_path}")
+    print(f"   ✓ Saved to: {dest_path}")
+else:
+    print(f"   ⚠ Warning: Source image not found at {source_path}")
+    print("   Creating placeholder instead...")
 
-plt.tight_layout()
-plt.savefig("docs/images/inference_result.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("   ✓ Saved to: docs/images/inference_result.png")
+    # Fallback to placeholder if source image doesn't exist
+    fig, ax = plt.subplots(figsize=(8, 10))
+    ax.text(0.5, 0.5, 'Inference results image not found\nPlease add validation results',
+            ha='center', va='center', fontsize=14, transform=ax.transAxes)
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(dest_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"   ✓ Saved placeholder to: {dest_path}")
 
 
-# Figure 7: Geometric Analysis
-print("\n[6/6] Generating geometric analysis visualization...")
-# Simulated processed landmarks
-c2_proc = np.array([[-10, 0], [0, 5], [10, 0]])
-c3_proc = np.array([[-15, 0], [-10, 8], [0, 12], [10, 8], [15, 0]])
-c4_proc = np.array([[-18, 0], [-12, 10], [0, 14], [12, 10], [18, 0]])
-
-fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-vertebrae = [c2_proc, c3_proc, c4_proc]
-titles = [
-    "C2 (Rotated & Translated)",
-    "C3 (Rotated & Translated)",
-    "C4 (Rotated & Translated)",
-]
-colors = ["red", "green", "blue"]
-
-for ax, vert, title, color in zip(axes, vertebrae, titles, colors):
-    ax.scatter(
-        vert[:, 0],
-        vert[:, 1],
-        c=color,
-        s=150,
-        zorder=3,
-        edgecolors="black",
-        linewidth=2,
-    )
-    ax.plot(vert[:, 0], vert[:, 1], color=color, alpha=0.5, linewidth=2, linestyle="--")
-    for i, point in enumerate(vert):
-        ax.annotate(
-            str(i),
-            (point[0], point[1]),
-            fontsize=12,
-            color="white",
-            ha="center",
-            va="center",
-            weight="bold",
-        )
-    ax.axhline(y=0, color="gray", linestyle="--", alpha=0.5, linewidth=1)
-    ax.axvline(x=0, color="gray", linestyle="--", alpha=0.5, linewidth=1)
-    ax.set_title(title, fontsize=12, fontweight="bold")
-    ax.set_xlabel("Width (mm)", fontsize=11)
-    ax.set_ylabel("Height (mm)", fontsize=11)
-    ax.grid(alpha=0.3, linestyle=":")
-    ax.set_aspect("equal")
-    ax.set_xlim(-25, 25)
-    ax.set_ylim(-5, 20)
-
-plt.suptitle(
-    "Geometric Analysis Result: Stage CS3", fontsize=16, fontweight="bold", y=1.02
-)
-plt.tight_layout()
-plt.savefig("docs/images/geometric_analysis.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("   ✓ Saved to: docs/images/geometric_analysis.png")
 
 
 print("\n" + "=" * 60)
@@ -435,5 +333,4 @@ print("  - docs/images/heatmap_visualization.png")
 print("  - docs/images/augmentation_examples.png")
 print("  - docs/images/model_performance.png")
 print("  - docs/images/inference_result.png")
-print("  - docs/images/geometric_analysis.png")
 print("\nThese figures are now ready to use in your blog post!")
