@@ -1,4 +1,4 @@
-""" Module for hosting functionalities needed for inference using rules defined by
+"""Module for hosting functionalities needed for inference using rules defined by
 McNamara et. al. in the paper
 
 The cervical vertebral maturation method: A user's guide

@@ -1,4 +1,4 @@
-""" The trainer classes and functions mostly written in PytorchLightning API. """
+"""The trainer classes and functions mostly written in PytorchLightning API."""
 
 import os
 

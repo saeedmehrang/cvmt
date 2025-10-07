@@ -1,4 +1,4 @@
-""" The functions and classes for defining deep neural network model architectures. """
+"""The functions and classes for defining deep neural network model architectures."""
 
 from typing import Union
 

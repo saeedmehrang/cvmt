@@ -1,4 +1,4 @@
-""" Train-val-test splitting functionality."""
+"""Train-val-test splitting functionality."""
 
 from .utils import split_filenames, stratify_dataset_4
 import numpy as np
