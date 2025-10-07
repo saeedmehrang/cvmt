@@ -6,8 +6,8 @@ from cvmt.data.utils import load_image
 import numpy as np
 
 
-IMAGE_DIR = "tests/data_for_tests"
-IMAGE_FILENAME = "001.jpeg"
+IMAGE_DIR = "../docs/images"
+IMAGE_FILENAME = "155.png"
 
 
 # This is your test case
